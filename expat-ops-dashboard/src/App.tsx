@@ -3,7 +3,6 @@ import type { User } from 'firebase/auth';
 import { 
   Trash2, 
   Plus, 
-  RotateCcw, 
   Plane,
   GripVertical,
   LogOut
@@ -29,37 +28,6 @@ interface Step {
   budgetActual: number;
   status: StepStatus;
 }
-
-// --- DEMO DATA ---
-const DEMO_PLAN: Step[] = [
-  {
-    id: 'demo-0-1',
-    phase: '0. Strategia',
-    title: 'Master Udacity / Woolf',
-    notes: 'Verifica accreditamento EQF Level 7 per IFICI "Route C". Sblocca il regime fiscale senza certificazione Startup.',
-    budgetEstimated: 600,
-    budgetActual: 0,
-    status: 'progress'
-  },
-  {
-    id: 'demo-0-2',
-    phase: '0. Strategia',
-    title: 'Assetto Fiscale',
-    notes: '2026-27: Recibo Verde (Freelance). 2028: Unipessoal Lda + IFICI. Mantenere fatturato estero.',
-    budgetEstimated: 0,
-    budgetActual: 0,
-    status: 'todo'
-  },
-  {
-    id: 'demo-1-1',
-    phase: '1. Uscita IT',
-    title: 'Garage Alghero',
-    notes: 'Affitto 12 mesi per stoccaggio. Evita costi di spedizione immediati se si decide di tornare.',
-    budgetEstimated: 1800,
-    budgetActual: 0,
-    status: 'todo'
-  },
-];
 
 // --- COMPONENTI UI ---
 
@@ -108,22 +76,10 @@ const LoginScreen = ({ onLogin }: { onLogin: () => void }) => (
       
       <button
         onClick={onLogin}
-        className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition-colors mb-4"
+        className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition-colors"
       >
         Sign in with Google
       </button>
-      
-      <div className="bg-slate-50 p-4 rounded-lg text-center">
-        <p className="text-xs text-slate-500 mb-3">Demo Preview</p>
-        <div className="space-y-2">
-          {DEMO_PLAN.slice(0, 2).map(step => (
-            <div key={step.id} className="text-left bg-white p-2 rounded border border-slate-200">
-              <p className="text-xs font-bold text-blue-600">{step.phase}</p>
-              <p className="text-sm font-semibold text-slate-900">{step.title}</p>
-            </div>
-          ))}
-        </div>
-      </div>
     </div>
   </div>
 );
@@ -163,8 +119,8 @@ export default function ExpatDashboard() {
         });
         setUnsubscribe(() => unsubSteps);
       } else {
-        // Not logged in, show demo
-        setSteps(DEMO_PLAN);
+        // Not logged in - show empty
+        setSteps([]);
         setIsLoaded(true);
         if (unsubscribe) unsubscribe();
       }
@@ -259,12 +215,6 @@ export default function ExpatDashboard() {
     }
   };
 
-  const handleResetToDemo = () => {
-    if (confirm('Ripristinare il demo plan?')) {
-      setSteps(DEMO_PLAN);
-    }
-  };
-
   // KPI
   const totalEst = steps.reduce((sum, s) => sum + s.budgetEstimated, 0);
   const totalAct = steps.reduce((sum, s) => sum + s.budgetActual, 0);
@@ -315,9 +265,6 @@ export default function ExpatDashboard() {
             <div className="text-xs text-slate-500">{user?.email}</div>
             <button onClick={handleAddStep} className="bg-slate-900 text-white p-2 rounded hover:bg-slate-700 transition" title="Aggiungi">
               <Plus size={18} />
-            </button>
-            <button onClick={handleResetToDemo} className="text-slate-400 hover:text-red-600 hover:bg-red-50 p-2 rounded transition" title="Reset">
-              <RotateCcw size={18} />
             </button>
             <button onClick={handleLogout} className="text-slate-400 hover:text-red-600 hover:bg-red-50 p-2 rounded transition" title="Logout">
               <LogOut size={18} />
