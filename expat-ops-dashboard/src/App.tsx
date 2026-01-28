@@ -1,13 +1,22 @@
 import { useState, useEffect, useRef } from 'react';
+import type { User } from 'firebase/auth';
 import { 
   Trash2, 
   Plus, 
   RotateCcw, 
   Plane,
-  GripVertical
+  GripVertical,
+  LogOut
 } from 'lucide-react';
+import { signInWithGoogle, signOut, onAuthChange } from './authService';
+import { 
+  addStep, 
+  updateStep, 
+  deleteStep, 
+  subscribeToUserSteps
+} from './firestoreService';
 
-// --- TIPI E INTERFACCE ---
+// --- LOCAL TYPES ---
 
 type StepStatus = 'todo' | 'progress' | 'done';
 
@@ -21,11 +30,10 @@ interface Step {
   status: StepStatus;
 }
 
-// --- MASTER PLAN: IL PIANO BLINDATO ALGHERO -> CASCAIS ---
-const MASTER_PLAN: Step[] = [
-  // FASE 0: STRATEGIA FISCALE
+// --- DEMO DATA ---
+const DEMO_PLAN: Step[] = [
   {
-    id: '0-1',
+    id: 'demo-0-1',
     phase: '0. Strategia',
     title: 'Master Udacity / Woolf',
     notes: 'Verifica accreditamento EQF Level 7 per IFICI "Route C". Sblocca il regime fiscale senza certificazione Startup.',
@@ -34,7 +42,7 @@ const MASTER_PLAN: Step[] = [
     status: 'progress'
   },
   {
-    id: '0-2',
+    id: 'demo-0-2',
     phase: '0. Strategia',
     title: 'Assetto Fiscale',
     notes: '2026-27: Recibo Verde (Freelance). 2028: Unipessoal Lda + IFICI. Mantenere fatturato estero.',
@@ -42,10 +50,8 @@ const MASTER_PLAN: Step[] = [
     budgetActual: 0,
     status: 'todo'
   },
-
-  // FASE 1: USCITA ITALIA
   {
-    id: '1-1',
+    id: 'demo-1-1',
     phase: '1. Uscita IT',
     title: 'Garage Alghero',
     notes: 'Affitto 12 mesi per stoccaggio. Evita costi di spedizione immediati se si decide di tornare.',
@@ -53,103 +59,9 @@ const MASTER_PLAN: Step[] = [
     budgetActual: 0,
     status: 'todo'
   },
-  {
-    id: '1-2',
-    phase: '1. Uscita IT',
-    title: 'The Purge',
-    notes: 'Robivecchi locale per svuotare casa in un giorno. Vendere o buttare tutto il superfluo.',
-    budgetEstimated: 500,
-    budgetActual: 0,
-    status: 'todo'
-  },
-  {
-    id: '1-3',
-    phase: '1. Uscita IT',
-    title: 'Auto: Fase Italia',
-    notes: 'Pagare 2 bolli pendenti e fare revisione. NON chiudere finanziamento Avvera ora. Tenere targhe IT.',
-    budgetEstimated: 200,
-    budgetActual: 0,
-    status: 'todo'
-  },
-  {
-    id: '1-4',
-    phase: '1. Uscita IT',
-    title: 'Fisco: Stop Acconti',
-    notes: 'Commercialista: applicare "Metodo Previsionale". Non pagare acconti IRPEF 2026 a giugno/nov.',
-    budgetEstimated: 0,
-    budgetActual: 0,
-    status: 'todo'
-  },
-
-  // FASE 2: TRANSIZIONE
-  {
-    id: '2-1',
-    phase: '2. Transizione',
-    title: 'Affitto Cascais',
-    notes: 'Budget ingresso aggressivo: 1 mese + 2 caparra. Se no T2 subito -> Airbnb 1 mese.',
-    budgetEstimated: 7500,
-    budgetActual: 0,
-    status: 'todo'
-  },
-  {
-    id: '2-2',
-    phase: '2. Transizione',
-    title: 'La Traversata',
-    notes: 'Ferry Porto Torres -> BCN. Auto -> Madrid -> Cascais. Benzina, pedaggi e hotel inclusi.',
-    budgetEstimated: 900,
-    budgetActual: 0,
-    status: 'todo'
-  },
-
-  // FASE 3: SETUP PT
-  {
-    id: '3-1',
-    phase: '3. Landing PT',
-    title: 'Legal Package',
-    notes: 'Avvocato per NIF, NISS, Conto Banca e CRUE (Residenza). Priorità assoluta all\'arrivo.',
-    budgetEstimated: 2500,
-    budgetActual: 0,
-    status: 'todo'
-  },
-  {
-    id: '3-2',
-    phase: '3. Landing PT',
-    title: 'Auto: Targa PT',
-    notes: 'Entro 6 mesi: pratica Matriculação + Esenzione ISV (con prova 12 mesi residenza IT).',
-    budgetEstimated: 700,
-    budgetActual: 0,
-    status: 'todo'
-  },
-  {
-    id: '3-3',
-    phase: '3. Landing PT',
-    title: 'Auto: Radiazione IT',
-    notes: 'SOLO DOPO aver ottenuto targhe PT. Fare pratica al PRA tramite consolato per stop bollo.',
-    budgetEstimated: 150,
-    budgetActual: 0,
-    status: 'todo'
-  },
-  {
-    id: '3-4',
-    phase: '3. Landing PT',
-    title: 'Iscrizione AIRE',
-    notes: 'Appena ottenuto contratto e CRUE. Fondamentale per il "Clean Break" fiscale 2026.',
-    budgetEstimated: 0,
-    budgetActual: 0,
-    status: 'todo'
-  },
-  {
-    id: '4-1',
-    phase: '4. Futuro',
-    title: 'Spedizione Scatole',
-    notes: 'Opzionale: se si resta, sblocco garage Alghero e spedizione finale.',
-    budgetEstimated: 2000,
-    budgetActual: 0,
-    status: 'todo'
-  }
 ];
 
-// --- COMPONENTI UI COMPATTI ---
+// --- COMPONENTI UI ---
 
 const StatusBadge = ({ status, onClick }: { status: StepStatus, onClick: () => void }) => {
   const styles = {
@@ -183,87 +95,173 @@ const CompactBudgetInput = ({ value, onChange, isActual }: { value: number, onCh
   </div>
 );
 
+const LoginScreen = ({ onLogin }: { onLogin: () => void }) => (
+  <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+    <div className="bg-white rounded-lg shadow-xl p-8 max-w-md w-full">
+      <div className="flex justify-center mb-6">
+        <div className="bg-blue-600 text-white p-3 rounded-lg">
+          <Plane size={32} />
+        </div>
+      </div>
+      <h1 className="text-3xl font-black text-center text-slate-900 mb-2">EXPAT OPS 2026</h1>
+      <p className="text-center text-slate-500 mb-8">Alghero → Cascais</p>
+      
+      <button
+        onClick={onLogin}
+        className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition-colors mb-4"
+      >
+        Sign in with Google
+      </button>
+      
+      <div className="bg-slate-50 p-4 rounded-lg text-center">
+        <p className="text-xs text-slate-500 mb-3">Demo Preview</p>
+        <div className="space-y-2">
+          {DEMO_PLAN.slice(0, 2).map(step => (
+            <div key={step.id} className="text-left bg-white p-2 rounded border border-slate-200">
+              <p className="text-xs font-bold text-blue-600">{step.phase}</p>
+              <p className="text-sm font-semibold text-slate-900">{step.title}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
 // --- APP PRINCIPALE ---
 
 export default function ExpatDashboard() {
+  const [user, setUser] = useState<User | null>(null);
   const [steps, setSteps] = useState<Step[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [unsubscribe, setUnsubscribe] = useState<(() => void) | null>(null);
   
   // Drag & Drop Refs
   const dragItem = useRef<number | null>(null);
   const dragOverItem = useRef<number | null>(null);
 
+  // Auth state listener
   useEffect(() => {
-    const savedData = localStorage.getItem('expat-ops-compact-2026');
-    if (savedData) {
-      try {
-        setSteps(JSON.parse(savedData));
-      } catch (e) {
-        setSteps(MASTER_PLAN);
+    const unsubFunc = onAuthChange((authUser) => {
+      setUser(authUser);
+      
+      if (authUser) {
+        // Subscribe to user's steps from Firestore
+        const unsubSteps = subscribeToUserSteps(authUser.uid, (firestoreSteps) => {
+          // Convert Firestore documents to local format
+          const localSteps: Step[] = firestoreSteps.map(fStep => ({
+            id: fStep.id,
+            phase: fStep.phase,
+            title: fStep.title,
+            notes: fStep.notes,
+            budgetEstimated: fStep.budgetEstimated,
+            budgetActual: fStep.budgetActual,
+            status: fStep.status,
+          }));
+          setSteps(localSteps);
+          setIsLoaded(true);
+        });
+        setUnsubscribe(() => unsubSteps);
+      } else {
+        // Not logged in, show demo
+        setSteps(DEMO_PLAN);
+        setIsLoaded(true);
+        if (unsubscribe) unsubscribe();
       }
-    } else {
-      setSteps(MASTER_PLAN);
-    }
-    setIsLoaded(true);
+    });
+
+    return () => unsubFunc();
   }, []);
 
-  useEffect(() => {
-    if (isLoaded) {
-      localStorage.setItem('expat-ops-compact-2026', JSON.stringify(steps));
-    }
-  }, [steps, isLoaded]);
+  // --- HANDLERS ---
 
-  // --- LOGICA ---
+  const handleLogin = async () => {
+    try {
+      await signInWithGoogle();
+    } catch (error) {
+      console.error('Login failed:', error);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  };
 
   const handleSort = () => {
-    // Duplicate items
     let _steps = [...steps];
-    // Remove and save the dragged item content
     const draggedItemContent = _steps.splice(dragItem.current!, 1)[0];
-    // Switch the position
     _steps.splice(dragOverItem.current!, 0, draggedItemContent);
-    // Reset positions
     dragItem.current = null;
     dragOverItem.current = null;
-    // Update actual array
     setSteps(_steps);
   };
 
-  const updateStep = (id: string, field: keyof Step, value: any) => {
+  const handleUpdateStep = async (id: string, field: keyof Step, value: any) => {
+    // Update local state immediately for UX
     setSteps(prev => prev.map(s => s.id === id ? { ...s, [field]: value } : s));
+    
+    // Save to Firestore if logged in
+    if (user && !id.startsWith('demo-')) {
+      try {
+        await updateStep(id, { [field]: value } as any);
+      } catch (error) {
+        console.error('Error saving to Firebase:', error);
+      }
+    }
   };
 
-  const toggleStatus = (id: string, current: StepStatus) => {
+  const handleToggleStatus = async (id: string, current: StepStatus) => {
     const next: Record<StepStatus, StepStatus> = {
       'todo': 'progress',
       'progress': 'done',
       'done': 'todo'
     };
-    updateStep(id, 'status', next[current]);
+    await handleUpdateStep(id, 'status', next[current]);
   };
 
-  const deleteStep = (id: string) => {
+  const handleDeleteStep = async (id: string) => {
     if (confirm('Eliminare questa scheda?')) {
       setSteps(prev => prev.filter(s => s.id !== id));
+      
+      if (user && !id.startsWith('demo-')) {
+        try {
+          await deleteStep(id);
+        } catch (error) {
+          console.error('Error deleting from Firebase:', error);
+        }
+      }
     }
   };
 
-  const addStep = () => {
-    const newStep: Step = {
-      id: Date.now().toString(),
-      phase: 'Nuova Fase',
-      title: 'Nuovo Task',
-      notes: '',
-      budgetEstimated: 0,
-      budgetActual: 0,
-      status: 'todo'
-    };
-    setSteps([newStep, ...steps]); // Aggiungi in cima
+  const handleAddStep = async () => {
+    if (!user) {
+      alert('Effettua il login per aggiungere nuovi step');
+      return;
+    }
+
+    try {
+      await addStep({
+        phase: 'Nuova Fase',
+        title: 'Nuovo Task',
+        notes: '',
+        budgetEstimated: 0,
+        budgetActual: 0,
+        status: 'todo'
+      });
+
+      // Local state will be updated by Firestore listener
+    } catch (error) {
+      console.error('Error adding step:', error);
+    }
   };
 
-  const resetToMaster = () => {
-    if (confirm('Ripristinare il piano originale? Perderai le modifiche.')) {
-      setSteps(MASTER_PLAN);
+  const handleResetToDemo = () => {
+    if (confirm('Ripristinare il demo plan?')) {
+      setSteps(DEMO_PLAN);
     }
   };
 
@@ -272,12 +270,14 @@ export default function ExpatDashboard() {
   const totalAct = steps.reduce((sum, s) => sum + s.budgetActual, 0);
   const progress = Math.round((steps.filter(s => s.status === 'done').length / steps.length) * 100) || 0;
 
-  if (!isLoaded) return <div className="flex h-screen items-center justify-center text-slate-400">Loading Dashboard...</div>;
+  if (!isLoaded) return <div className="flex h-screen items-center justify-center text-slate-400">Loading...</div>;
+
+  if (!user) return <LoginScreen onLogin={handleLogin} />;
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-800 font-sans pb-20">
       
-      {/* HEADER FISSO */}
+      {/* HEADER */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm px-4 py-3">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
           
@@ -291,7 +291,7 @@ export default function ExpatDashboard() {
             </div>
           </div>
 
-          {/* MINI KPI NEL HEADER */}
+          {/* KPI */}
           <div className="flex items-center gap-4 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
             <div className="flex flex-col items-end">
               <span className="text-[10px] font-bold text-slate-400 uppercase">Budget</span>
@@ -305,18 +305,22 @@ export default function ExpatDashboard() {
               </span>
             </div>
             <div className="h-6 w-px bg-slate-300"></div>
-            <div className="flex flex-col items-end w-12">
+            <div className="flex flex-col items-end">
               <span className="text-[10px] font-bold text-slate-400 uppercase">Status</span>
               <span className="text-sm font-black text-emerald-500">{progress}%</span>
             </div>
           </div>
 
-          <div className="flex gap-2">
-            <button onClick={addStep} className="bg-slate-900 text-white p-2 rounded hover:bg-slate-700 transition" title="Aggiungi">
+          <div className="flex gap-2 items-center">
+            <div className="text-xs text-slate-500">{user?.email}</div>
+            <button onClick={handleAddStep} className="bg-slate-900 text-white p-2 rounded hover:bg-slate-700 transition" title="Aggiungi">
               <Plus size={18} />
             </button>
-            <button onClick={resetToMaster} className="text-slate-400 hover:text-red-600 hover:bg-red-50 p-2 rounded transition" title="Reset">
+            <button onClick={handleResetToDemo} className="text-slate-400 hover:text-red-600 hover:bg-red-50 p-2 rounded transition" title="Reset">
               <RotateCcw size={18} />
+            </button>
+            <button onClick={handleLogout} className="text-slate-400 hover:text-red-600 hover:bg-red-50 p-2 rounded transition" title="Logout">
+              <LogOut size={18} />
             </button>
           </div>
         </div>
@@ -324,7 +328,7 @@ export default function ExpatDashboard() {
 
       <main className="max-w-6xl mx-auto px-4 py-6">
         
-        {/* GRIGLIA DRAGGABILE */}
+        {/* GRID */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {steps.map((step, index) => (
             <div 
@@ -341,63 +345,56 @@ export default function ExpatDashboard() {
               `}
             >
               
-              {/* Maniglia Drag */}
               <div className="absolute top-2 left-2 text-slate-300 cursor-grab active:cursor-grabbing hover:text-slate-500 p-1">
                 <GripVertical size={14} />
               </div>
 
-              {/* Contenuto Card */}
               <div className="p-3 pl-8 flex flex-col h-full gap-2">
                 
-                {/* Header Card */}
                 <div className="flex justify-between items-start">
                   <div className="w-full">
                     <input 
                       value={step.phase}
-                      onChange={(e) => updateStep(step.id, 'phase', e.target.value)}
+                      onChange={(e) => handleUpdateStep(step.id, 'phase', e.target.value)}
                       className="text-[10px] font-bold text-blue-600 uppercase tracking-wider bg-transparent focus:bg-blue-50 rounded w-full outline-none mb-0.5"
                     />
                     <input 
                       value={step.title}
-                      onChange={(e) => updateStep(step.id, 'title', e.target.value)}
+                      onChange={(e) => handleUpdateStep(step.id, 'title', e.target.value)}
                       className="text-sm font-bold text-slate-900 bg-transparent focus:bg-slate-50 rounded w-full outline-none"
                       placeholder="Titolo..."
                     />
                   </div>
                 </div>
 
-                {/* Note Area */}
                 <textarea 
                   value={step.notes}
-                  onChange={(e) => updateStep(step.id, 'notes', e.target.value)}
+                  onChange={(e) => handleUpdateStep(step.id, 'notes', e.target.value)}
                   className="w-full text-xs text-slate-500 bg-slate-50 border border-transparent focus:border-blue-100 focus:bg-white rounded p-1.5 resize-none flex-grow outline-none min-h-[60px]"
                   placeholder="Note..."
                 />
 
-                {/* Footer: Budget & Actions */}
                 <div className="flex items-end justify-between mt-1 pt-2 border-t border-slate-100">
                   
-                  {/* Budget Inputs */}
                   <div className="flex gap-2">
                     <div className="flex flex-col">
                       <span className="text-[9px] font-bold text-slate-400 uppercase mb-0.5">Est.</span>
-                      <CompactBudgetInput value={step.budgetEstimated} onChange={(v) => updateStep(step.id, 'budgetEstimated', v)} />
+                      <CompactBudgetInput value={step.budgetEstimated} onChange={(v) => handleUpdateStep(step.id, 'budgetEstimated', v)} />
                     </div>
                     <div className="flex flex-col">
                       <span className="text-[9px] font-bold text-slate-400 uppercase mb-0.5">Real</span>
-                      <CompactBudgetInput value={step.budgetActual} onChange={(v) => updateStep(step.id, 'budgetActual', v)} isActual />
+                      <CompactBudgetInput value={step.budgetActual} onChange={(v) => handleUpdateStep(step.id, 'budgetActual', v)} isActual />
                     </div>
                   </div>
 
-                  {/* Actions */}
                   <div className="flex flex-col items-end gap-1">
                     <button 
-                      onClick={() => deleteStep(step.id)}
+                      onClick={() => handleDeleteStep(step.id)}
                       className="text-slate-300 hover:text-red-500 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
                     >
                       <Trash2 size={12} />
                     </button>
-                    <StatusBadge status={step.status} onClick={() => toggleStatus(step.id, step.status)} />
+                    <StatusBadge status={step.status} onClick={() => handleToggleStatus(step.id, step.status)} />
                   </div>
 
                 </div>
@@ -405,14 +402,6 @@ export default function ExpatDashboard() {
             </div>
           ))}
         </div>
-
-        {/* Empty State Help */}
-        {steps.length === 0 && (
-          <div className="text-center py-20 text-slate-400">
-            <p>Nessuno step presente. Inizia aggiungendone uno o resetta.</p>
-            <button onClick={resetToMaster} className="mt-4 text-blue-600 font-bold hover:underline">Ripristina Default</button>
-          </div>
-        )}
 
       </main>
     </div>
