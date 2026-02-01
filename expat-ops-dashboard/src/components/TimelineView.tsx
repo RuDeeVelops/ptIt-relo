@@ -4,6 +4,28 @@ import { GripVertical, Trash2 } from 'lucide-react';
 import type { Step } from '../firestoreService';
 import type { RelocationConfig } from './RelocationConfig';
 
+// Helper to safely parse dates from Firestore (handles Timestamp, Date, string, etc.)
+const parseDate = (date: any): Date | null => {
+  if (!date) return null;
+  // Firestore Timestamp
+  if (date?.toDate && typeof date.toDate === 'function') {
+    return date.toDate();
+  }
+  // Already a Date
+  if (date instanceof Date && !isNaN(date.getTime())) {
+    return date;
+  }
+  // String or number
+  const parsed = new Date(date);
+  return isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const formatDateForInput = (date: any): string => {
+  const parsed = parseDate(date);
+  if (!parsed) return '';
+  return parsed.toISOString().split('T')[0];
+};
+
 interface TimelineViewProps {
   steps: Step[];
   config: RelocationConfig;
@@ -232,11 +254,7 @@ const TimelineCard = ({
           <div className="flex gap-2 items-start mb-2">
             <input
               type="date"
-              value={
-                step.date 
-                  ? new Date(typeof step.date === 'string' ? step.date : step.date).toISOString().split('T')[0]
-                  : ''
-              }
+              value={formatDateForInput(step.date)}
               onClick={(e) => e.stopPropagation()}
               onChange={(e) => {
                 const date = e.target.value ? new Date(e.target.value + 'T00:00:00Z') : null;

@@ -4,6 +4,28 @@ import { Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Step } from '../firestoreService';
 import type { RelocationConfig } from './RelocationConfig';
 
+// Helper to safely parse dates from Firestore (handles Timestamp, Date, string, etc.)
+const parseDate = (date: any): Date | null => {
+  if (!date) return null;
+  // Firestore Timestamp
+  if (date?.toDate && typeof date.toDate === 'function') {
+    return date.toDate();
+  }
+  // Already a Date
+  if (date instanceof Date && !isNaN(date.getTime())) {
+    return date;
+  }
+  // String or number
+  const parsed = new Date(date);
+  return isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const formatDateForInput = (date: any): string => {
+  const parsed = parseDate(date);
+  if (!parsed) return '';
+  return parsed.toISOString().split('T')[0];
+};
+
 interface CarouselViewProps {
   steps: Step[];
   config: RelocationConfig;
@@ -240,11 +262,7 @@ const CarouselCard = ({
             <label className="text-xs font-bold text-white/60 uppercase">Date</label>
             <input
               type="date"
-              value={
-                step.date
-                  ? new Date(typeof step.date === 'string' ? step.date : step.date).toISOString().split('T')[0]
-                  : ''
-              }
+              value={formatDateForInput(step.date)}
               onChange={(e) => {
                 const date = e.target.value ? new Date(e.target.value + 'T00:00:00Z') : null;
                 onUpdateStep(step.id, 'date', date);
@@ -256,10 +274,10 @@ const CarouselCard = ({
         ) : (
           <>
             <div className="text-5xl font-black text-white/90 mb-2">
-              {step.date ? new Date(typeof step.date === 'string' ? step.date : step.date).getDate() : '?'}
+              {parseDate(step.date)?.getDate() ?? '?'}
             </div>
             <div className="text-sm font-bold text-white/70 uppercase tracking-wide">
-              {step.date ? new Date(typeof step.date === 'string' ? step.date : step.date).toLocaleString('en-US', { month: 'short', year: 'numeric' }) : 'No date'}
+              {parseDate(step.date)?.toLocaleString('en-US', { month: 'short', year: 'numeric' }) ?? 'No date'}
             </div>
           </>
         )}
