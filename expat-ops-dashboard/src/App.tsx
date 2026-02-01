@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { User } from 'firebase/auth';
 import { 
   Plus, 
@@ -13,6 +13,8 @@ import {
   updateStep, 
   deleteStep, 
   subscribeToUserSteps,
+  getUserSettings,
+  saveUserSettings,
   type Step
 } from './firestoreService';
 import { RelocationConfigPanel, type RelocationConfig } from './components/RelocationConfig';
@@ -56,12 +58,39 @@ export default function ExpatDashboard() {
     endDate: null,
   });
 
+  // Load user settings (relocation config) from Firestore
+  const loadUserSettings = useCallback(async (userId: string) => {
+    const settings = await getUserSettings(userId);
+    if (settings) {
+      setRelocationConfig({
+        startDate: settings.relocationStartDate ? new Date(settings.relocationStartDate) : null,
+        relocationDate: settings.relocationDate ? new Date(settings.relocationDate) : null,
+        endDate: settings.relocationEndDate ? new Date(settings.relocationEndDate) : null,
+      });
+    }
+  }, []);
+
+  // Save relocation config to Firestore
+  const handleRelocationConfigUpdate = useCallback((config: RelocationConfig) => {
+    setRelocationConfig(config);
+    if (user) {
+      saveUserSettings(user.uid, {
+        relocationStartDate: config.startDate?.toISOString() ?? null,
+        relocationDate: config.relocationDate?.toISOString() ?? null,
+        relocationEndDate: config.endDate?.toISOString() ?? null,
+      }).catch(err => console.error('Error saving settings:', err));
+    }
+  }, [user]);
+
   // Auth state listener
   useEffect(() => {
     const unsubFunc = onAuthChange((authUser) => {
       setUser(authUser);
       
       if (authUser) {
+        // Load user settings
+        loadUserSettings(authUser.uid);
+        
         // Subscribe to user's steps from Firestore
         const unsubSteps = subscribeToUserSteps(authUser.uid, (firestoreSteps) => {
           setSteps(firestoreSteps);
@@ -77,7 +106,7 @@ export default function ExpatDashboard() {
     });
 
     return () => unsubFunc();
-  }, []);
+  }, [loadUserSettings]);
 
   // --- HANDLERS ---
 
@@ -257,7 +286,7 @@ export default function ExpatDashboard() {
       </header>
 
       {/* RELOCATION CONFIG PANEL */}
-      <RelocationConfigPanel config={relocationConfig} onUpdate={setRelocationConfig} />
+      <RelocationConfigPanel config={relocationConfig} onUpdate={handleRelocationConfigUpdate} />
 
       <main>
         {viewMode === 'carousel' ? (

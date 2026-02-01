@@ -7,7 +7,9 @@ import {
   query,
   where,
   onSnapshot,
-  Timestamp
+  Timestamp,
+  getDoc,
+  setDoc
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { getCurrentUser } from './authService';
@@ -28,7 +30,14 @@ export interface Step {
   updatedAt: Timestamp;
 }
 
+export interface UserSettings {
+  relocationStartDate?: string | null;
+  relocationDate?: string | null;
+  relocationEndDate?: string | null;
+}
+
 const STEPS_COLLECTION = 'steps';
+const SETTINGS_COLLECTION = 'userSettings';
 
 export const addStep = async (step: Omit<Step, 'id' | 'userId' | 'createdAt' | 'updatedAt'>) => {
   const user = getCurrentUser();
@@ -101,6 +110,31 @@ export const subscribeToUserSteps = (userId: string, callback: (steps: Step[]) =
     });
   } catch (error) {
     console.error('Error subscribing to steps:', error);
+    throw error;
+  }
+};
+
+// User Settings (for relocation timeline)
+export const getUserSettings = async (userId: string): Promise<UserSettings | null> => {
+  try {
+    const docRef = doc(db, SETTINGS_COLLECTION, userId);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      return docSnap.data() as UserSettings;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error getting user settings:', error);
+    return null;
+  }
+};
+
+export const saveUserSettings = async (userId: string, settings: UserSettings): Promise<void> => {
+  try {
+    const docRef = doc(db, SETTINGS_COLLECTION, userId);
+    await setDoc(docRef, settings, { merge: true });
+  } catch (error) {
+    console.error('Error saving user settings:', error);
     throw error;
   }
 };

@@ -1,6 +1,6 @@
-import { useMemo, useRef } from 'react';
-import { motion } from 'framer-motion';
-import { GripVertical, Trash2 } from 'lucide-react';
+import { useMemo, useRef, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { GripVertical, Trash2, ChevronDown } from 'lucide-react';
 import type { Step } from '../firestoreService';
 import type { RelocationConfig } from './RelocationConfig';
 
@@ -221,6 +221,8 @@ const TimelineCard = ({
   onDeleteStep: (id: string) => void;
   onToggleStatus: (id: string, status: Step['status']) => void;
 }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  
   const statusStyles = {
     todo: 'bg-amber-50 text-amber-600 border-amber-200 hover:bg-amber-100',
     progress: 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100',
@@ -231,9 +233,6 @@ const TimelineCard = ({
     const labels = { todo: '📋 Todo', progress: '🔄 In Progress', done: '✅ Done' };
     return labels[status];
   };
-
-  // Get today's date for the date picker min value
-  const today = new Date().toISOString().split('T')[0];
 
   return (
     <motion.div
@@ -257,43 +256,110 @@ const TimelineCard = ({
 
       {/* Card Content */}
       <div className="ml-8 p-4">
-        {/* Top Row: Phase & Status */}
-        <div className="flex items-center justify-between mb-3">
-          <input
-            value={step.phase}
-            onChange={(e) => onUpdateStep(step.id, 'phase', e.target.value)}
-            placeholder="Phase..."
-            className="text-[10px] font-bold text-blue-600 uppercase tracking-widest bg-transparent hover:bg-blue-50 focus:bg-blue-50 rounded px-1.5 py-0.5 outline-none border border-transparent focus:border-blue-200 transition-all max-w-[120px]"
-          />
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleStatus(step.id, step.status);
-            }}
-            className={`text-[10px] font-bold px-2.5 py-1 rounded-full border transition-all ${statusStyles[step.status]}`}
-          >
-            {getStatusLabel(step.status)}
-          </button>
+        {/* Top Row: Phase, Title & Status */}
+        <div className="flex items-start justify-between gap-3 mb-2">
+          <div className="flex-1 min-w-0">
+            <input
+              value={step.phase}
+              onChange={(e) => onUpdateStep(step.id, 'phase', e.target.value)}
+              placeholder="Phase..."
+              className="text-[10px] font-bold text-blue-600 uppercase tracking-widest bg-transparent hover:bg-blue-50 focus:bg-blue-50 rounded px-1.5 py-0.5 outline-none border border-transparent focus:border-blue-200 transition-all max-w-[120px] mb-1"
+            />
+            <input
+              value={step.title}
+              onChange={(e) => onUpdateStep(step.id, 'title', e.target.value)}
+              placeholder="Task title..."
+              className="w-full text-base font-bold text-slate-900 bg-transparent hover:bg-slate-50 focus:bg-slate-50 rounded px-2 py-1 outline-none border border-transparent focus:border-slate-200 transition-all"
+            />
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleStatus(step.id, step.status);
+              }}
+              className={`text-[10px] font-bold px-2.5 py-1 rounded-full border transition-all ${statusStyles[step.status]}`}
+            >
+              {getStatusLabel(step.status)}
+            </button>
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all"
+            >
+              <motion.div animate={{ rotate: isExpanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
+                <ChevronDown size={16} />
+              </motion.div>
+            </button>
+          </div>
         </div>
 
-        {/* Title */}
-        <input
-          value={step.title}
-          onChange={(e) => onUpdateStep(step.id, 'title', e.target.value)}
-          placeholder="Task title..."
-          className="w-full text-base font-bold text-slate-900 bg-transparent hover:bg-slate-50 focus:bg-slate-50 rounded px-2 py-1 outline-none border border-transparent focus:border-slate-200 transition-all mb-2"
-        />
+        {/* Preview Notes (collapsed) */}
+        {!isExpanded && step.notes && (
+          <p 
+            className="text-xs text-slate-500 truncate px-2 mb-2 cursor-pointer hover:text-slate-700"
+            onClick={() => setIsExpanded(true)}
+          >
+            {step.notes}
+          </p>
+        )}
 
-        {/* Notes */}
-        <textarea
-          value={step.notes}
-          onChange={(e) => onUpdateStep(step.id, 'notes', e.target.value)}
-          placeholder="Add notes..."
-          rows={2}
-          className="w-full text-xs text-slate-600 bg-slate-50 hover:bg-slate-100 focus:bg-white rounded-lg px-3 py-2 outline-none border border-slate-100 focus:border-slate-300 transition-all resize-none mb-3"
-        />
+        {/* Expanded Content */}
+        <AnimatePresence>
+          {isExpanded && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              {/* Notes */}
+              <textarea
+                value={step.notes}
+                onChange={(e) => onUpdateStep(step.id, 'notes', e.target.value)}
+                placeholder="Add notes, details, links..."
+                rows={4}
+                className="w-full text-sm text-slate-700 bg-slate-50 hover:bg-slate-100 focus:bg-white rounded-lg px-3 py-2 outline-none border border-slate-200 focus:border-blue-300 transition-all resize-none mb-3"
+              />
 
-        {/* Bottom Row: Date & Budget */}
+              {/* Budget Row */}
+              <div className="flex items-center gap-4 mb-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">Est. Budget</span>
+                  <div className="flex items-center bg-white rounded-lg px-2 py-1 border border-slate-200">
+                    <span className="text-xs text-slate-400 mr-1">€</span>
+                    <input
+                      type="number"
+                      value={step.budgetEstimated}
+                      onChange={(e) => onUpdateStep(step.id, 'budgetEstimated', parseFloat(e.target.value) || 0)}
+                      className="w-16 bg-transparent text-sm font-bold text-slate-700 outline-none text-right"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">Actual</span>
+                  <div className={`flex items-center rounded-lg px-2 py-1 border ${
+                    step.budgetActual > step.budgetEstimated 
+                      ? 'bg-red-50 border-red-200' 
+                      : 'bg-emerald-50 border-emerald-200'
+                  }`}>
+                    <span className="text-xs text-slate-400 mr-1">€</span>
+                    <input
+                      type="number"
+                      value={step.budgetActual}
+                      onChange={(e) => onUpdateStep(step.id, 'budgetActual', parseFloat(e.target.value) || 0)}
+                      className={`w-16 bg-transparent text-sm font-bold outline-none text-right ${
+                        step.budgetActual > step.budgetEstimated ? 'text-red-600' : 'text-emerald-600'
+                      }`}
+                    />
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Bottom Row: Date & Quick Budget Preview */}
         <div className="flex items-center justify-between gap-4 pt-3 border-t border-slate-100">
           {/* Date Picker */}
           <div className="flex items-center gap-2">
@@ -301,7 +367,6 @@ const TimelineCard = ({
             <input
               type="date"
               value={formatDateForInput(step.date)}
-              min={today}
               onChange={(e) => {
                 const date = e.target.value ? new Date(e.target.value + 'T00:00:00Z') : null;
                 onUpdateStep(step.id, 'date', date);
