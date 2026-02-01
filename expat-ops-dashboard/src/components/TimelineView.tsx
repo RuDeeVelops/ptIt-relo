@@ -87,10 +87,22 @@ export const TimelineView = ({
     onSort(newSteps);
   };
 
-  const isBeforeRelocation = (step: Step) => {
-    if (!config.relocationDate || !step.date) return true;
-    return new Date(step.date) < new Date(config.relocationDate);
+  const isBeforeRelocation = (step: Step): boolean | null => {
+    const relocationDate = parseDate(config.relocationDate);
+    const stepDate = parseDate(step.date);
+    
+    // If no relocation date set, can't determine
+    if (!relocationDate) return null;
+    // If step has no date, return null (undetermined)
+    if (!stepDate) return null;
+    
+    return stepDate < relocationDate;
   };
+
+  // Get steps grouped by phase
+  const beforeSteps = sortedSteps.filter(s => isBeforeRelocation(s) === true);
+  const afterSteps = sortedSteps.filter(s => isBeforeRelocation(s) === false);
+  const undatedSteps = sortedSteps.filter(s => isBeforeRelocation(s) === null && s.date === null);
 
   return (
     <div className="space-y-8">
@@ -124,75 +136,160 @@ export const TimelineView = ({
           )}
 
           {/* TIMELINE ZONES */}
-          <div className="space-y-4">
+          <div className="space-y-6">
             {/* PRE-RELOCATION ZONE */}
             {config.relocationDate && (
               <div>
-                <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 pl-4">
-                  📍 Before Relocation
+                <div className="flex items-center gap-3 mb-4 pl-4">
+                  <span className="text-lg">📍</span>
+                  <div>
+                    <div className="text-xs font-bold text-blue-600 uppercase tracking-widest">
+                      Before Relocation
+                    </div>
+                    <div className="text-[10px] text-slate-400">
+                      Tasks before {parseDate(config.relocationDate)?.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </div>
+                  </div>
+                  <div className="ml-auto text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
+                    {beforeSteps.length} tasks
+                  </div>
                 </div>
                 <div className="space-y-3 pl-4 pr-4 py-4 bg-blue-50/30 rounded-lg border border-blue-100/50">
-                  {sortedSteps
-                    .filter(s => s.date && isBeforeRelocation(s))
-                    .map((step, index) => (
-                      <TimelineCard
-                        key={step.id}
-                        step={step}
-                        index={index}
-                        dragItem={dragItem}
-                        dragOverItem={dragOverItem}
-                        onDragEnd={handleSort}
-                        onUpdateStep={onUpdateStep}
-                        onDeleteStep={onDeleteStep}
-                        onToggleStatus={onToggleStatus}
-                      />
-                    ))}
+                  {beforeSteps.length > 0 ? beforeSteps.map((step, index) => (
+                    <TimelineCard
+                      key={step.id}
+                      step={step}
+                      index={index}
+                      dragItem={dragItem}
+                      dragOverItem={dragOverItem}
+                      onDragEnd={handleSort}
+                      onUpdateStep={onUpdateStep}
+                      onDeleteStep={onDeleteStep}
+                      onToggleStatus={onToggleStatus}
+                      relocationDate={parseDate(config.relocationDate)}
+                    />
+                  )) : (
+                    <div className="text-center py-8 text-slate-400 text-sm">
+                      No tasks scheduled before relocation
+                    </div>
+                  )}
                 </div>
+              </div>
+            )}
+
+            {/* RELOCATION DAY MARKER */}
+            {config.relocationDate && (
+              <div className="flex items-center gap-4 px-4">
+                <div className="flex-1 h-px bg-gradient-to-r from-transparent via-red-300 to-transparent"></div>
+                <div className="flex items-center gap-2 px-4 py-2 bg-red-50 rounded-full border border-red-200">
+                  <span className="text-lg">🚀</span>
+                  <span className="text-xs font-bold text-red-600 uppercase tracking-wide">Relocation Day</span>
+                  <span className="text-xs font-bold text-red-500">
+                    {parseDate(config.relocationDate)?.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </span>
+                </div>
+                <div className="flex-1 h-px bg-gradient-to-r from-transparent via-red-300 to-transparent"></div>
               </div>
             )}
 
             {/* POST-RELOCATION ZONE */}
             {config.relocationDate && (
               <div>
-                <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 pl-4">
-                  🎯 After Relocation
+                <div className="flex items-center gap-3 mb-4 pl-4">
+                  <span className="text-lg">🎯</span>
+                  <div>
+                    <div className="text-xs font-bold text-emerald-600 uppercase tracking-widest">
+                      After Relocation
+                    </div>
+                    <div className="text-[10px] text-slate-400">
+                      Tasks after {parseDate(config.relocationDate)?.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </div>
+                  </div>
+                  <div className="ml-auto text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
+                    {afterSteps.length} tasks
+                  </div>
                 </div>
                 <div className="space-y-3 pl-4 pr-4 py-4 bg-emerald-50/30 rounded-lg border border-emerald-100/50">
-                  {sortedSteps
-                    .filter(s => !s.date || !isBeforeRelocation(s))
-                    .map((step, index) => (
-                      <TimelineCard
-                        key={step.id}
-                        step={step}
-                        index={index}
-                        dragItem={dragItem}
-                        dragOverItem={dragOverItem}
-                        onDragEnd={handleSort}
-                        onUpdateStep={onUpdateStep}
-                        onDeleteStep={onDeleteStep}
-                        onToggleStatus={onToggleStatus}
-                      />
-                    ))}
+                  {afterSteps.length > 0 ? afterSteps.map((step, index) => (
+                    <TimelineCard
+                      key={step.id}
+                      step={step}
+                      index={index}
+                      dragItem={dragItem}
+                      dragOverItem={dragOverItem}
+                      onDragEnd={handleSort}
+                      onUpdateStep={onUpdateStep}
+                      onDeleteStep={onDeleteStep}
+                      onToggleStatus={onToggleStatus}
+                      relocationDate={parseDate(config.relocationDate)}
+                    />
+                  )) : (
+                    <div className="text-center py-8 text-slate-400 text-sm">
+                      No tasks scheduled after relocation
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* UNDATED TASKS */}
+            {config.relocationDate && undatedSteps.length > 0 && (
+              <div>
+                <div className="flex items-center gap-3 mb-4 pl-4">
+                  <span className="text-lg">📋</span>
+                  <div>
+                    <div className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+                      Unscheduled
+                    </div>
+                    <div className="text-[10px] text-slate-400">
+                      Tasks without a date — add dates to place on timeline
+                    </div>
+                  </div>
+                  <div className="ml-auto text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-full">
+                    {undatedSteps.length} tasks
+                  </div>
+                </div>
+                <div className="space-y-3 pl-4 pr-4 py-4 bg-slate-50/50 rounded-lg border border-slate-200/50 border-dashed">
+                  {undatedSteps.map((step, index) => (
+                    <TimelineCard
+                      key={step.id}
+                      step={step}
+                      index={index}
+                      dragItem={dragItem}
+                      dragOverItem={dragOverItem}
+                      onDragEnd={handleSort}
+                      onUpdateStep={onUpdateStep}
+                      onDeleteStep={onDeleteStep}
+                      onToggleStatus={onToggleStatus}
+                      relocationDate={parseDate(config.relocationDate)}
+                    />
+                  ))}
                 </div>
               </div>
             )}
 
             {/* NO RELOCATION DATE SET */}
             {!config.relocationDate && (
-              <div className="space-y-3 pl-4 pr-4 py-4 bg-slate-50 rounded-lg border border-slate-100">
-                {sortedSteps.map((step, index) => (
-                  <TimelineCard
-                    key={step.id}
-                    step={step}
-                    index={index}
-                    dragItem={dragItem}
-                    dragOverItem={dragOverItem}
-                    onDragEnd={handleSort}
-                    onUpdateStep={onUpdateStep}
-                    onDeleteStep={onDeleteStep}
-                    onToggleStatus={onToggleStatus}
-                  />
-                ))}
+              <div>
+                <div className="text-center mb-4 py-4 px-6 bg-amber-50 rounded-lg border border-amber-200">
+                  <span className="text-amber-600 text-sm">⚠️ Set a <strong>Relocation Day</strong> above to organize tasks into before/after phases</span>
+                </div>
+                <div className="space-y-3 pl-4 pr-4 py-4 bg-slate-50 rounded-lg border border-slate-100">
+                  {sortedSteps.map((step, index) => (
+                    <TimelineCard
+                      key={step.id}
+                      step={step}
+                      index={index}
+                      dragItem={dragItem}
+                      dragOverItem={dragOverItem}
+                      onDragEnd={handleSort}
+                      onUpdateStep={onUpdateStep}
+                      onDeleteStep={onDeleteStep}
+                      onToggleStatus={onToggleStatus}
+                      relocationDate={null}
+                    />
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -211,6 +308,7 @@ const TimelineCard = ({
   onUpdateStep,
   onDeleteStep,
   onToggleStatus,
+  relocationDate,
 }: {
   step: Step;
   index: number;
@@ -220,8 +318,20 @@ const TimelineCard = ({
   onUpdateStep: (id: string, field: keyof Step, value: any) => void;
   onDeleteStep: (id: string) => void;
   onToggleStatus: (id: string, status: Step['status']) => void;
+  relocationDate: Date | null;
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  
+  // Calculate days relative to relocation
+  const getDaysToRelocation = () => {
+    const stepDate = parseDate(step.date);
+    if (!stepDate || !relocationDate) return null;
+    const diffTime = stepDate.getTime() - relocationDate.getTime();
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+  
+  const daysToRelocation = getDaysToRelocation();
   
   const statusStyles = {
     todo: 'bg-amber-50 text-amber-600 border-amber-200 hover:bg-amber-100',
@@ -373,6 +483,27 @@ const TimelineCard = ({
               }}
               className="text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
             />
+            {/* Days to/from relocation indicator */}
+            {daysToRelocation !== null && (
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                daysToRelocation < 0 
+                  ? 'bg-blue-100 text-blue-600' 
+                  : daysToRelocation === 0 
+                    ? 'bg-red-100 text-red-600'
+                    : 'bg-emerald-100 text-emerald-600'
+              }`}>
+                {daysToRelocation === 0 
+                  ? '🚀 Move day!' 
+                  : daysToRelocation < 0 
+                    ? `${Math.abs(daysToRelocation)}d before` 
+                    : `${daysToRelocation}d after`}
+              </span>
+            )}
+            {step.date && daysToRelocation === null && relocationDate === null && (
+              <span className="text-[10px] text-amber-500 font-medium">
+                ⚠️ Set relocation date
+              </span>
+            )}
           </div>
 
           {/* Budget */}

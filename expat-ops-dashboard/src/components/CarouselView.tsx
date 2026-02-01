@@ -78,9 +78,23 @@ export const CarouselView = ({
   const getPrevIndex = () => (currentIndex - 1 + sortedSteps.length) % sortedSteps.length;
   const getNextIndex = () => (currentIndex + 1) % sortedSteps.length;
 
-  const isBeforeRelocation = (step: Step) => {
-    if (!config.relocationDate || !step.date) return true;
-    return new Date(step.date) < new Date(config.relocationDate);
+  const isBeforeRelocation = (step: Step): boolean | null => {
+    const relocationDate = parseDate(config.relocationDate);
+    const stepDate = parseDate(step.date);
+    
+    if (!relocationDate) return null;
+    if (!stepDate) return null;
+    
+    return stepDate < relocationDate;
+  };
+
+  // Calculate days to relocation for a step
+  const getDaysToRelocation = (step: Step): number | null => {
+    const relocationDate = parseDate(config.relocationDate);
+    const stepDate = parseDate(step.date);
+    if (!stepDate || !relocationDate) return null;
+    const diffTime = stepDate.getTime() - relocationDate.getTime();
+    return Math.round(diffTime / (1000 * 60 * 60 * 24));
   };
 
   if (sortedSteps.length === 0) {
@@ -127,7 +141,8 @@ export const CarouselView = ({
             <CarouselCard
               step={sortedSteps[getPrevIndex()]}
               isFocused={false}
-              isBeforeRelocation={isBeforeRelocation(sortedSteps[getPrevIndex()])}
+              isBeforeRelocation={isBeforeRelocation(sortedSteps[getPrevIndex()]) ?? true}
+              daysToRelocation={getDaysToRelocation(sortedSteps[getPrevIndex()])}
             />
           </motion.div>
 
@@ -152,7 +167,8 @@ export const CarouselView = ({
             <CarouselCard
               step={sortedSteps[currentIndex]}
               isFocused={true}
-              isBeforeRelocation={isBeforeRelocation(sortedSteps[currentIndex])}
+              isBeforeRelocation={isBeforeRelocation(sortedSteps[currentIndex]) ?? true}
+              daysToRelocation={getDaysToRelocation(sortedSteps[currentIndex])}
               onUpdateStep={onUpdateStep}
               onToggleStatus={onToggleStatus}
               onDeleteStep={onDeleteStep}
@@ -175,7 +191,8 @@ export const CarouselView = ({
             <CarouselCard
               step={sortedSteps[getNextIndex()]}
               isFocused={false}
-              isBeforeRelocation={isBeforeRelocation(sortedSteps[getNextIndex()])}
+              isBeforeRelocation={isBeforeRelocation(sortedSteps[getNextIndex()]) ?? true}
+              daysToRelocation={getDaysToRelocation(sortedSteps[getNextIndex()])}
             />
           </motion.div>
         </div>
@@ -223,6 +240,7 @@ const CarouselCard = ({
   step,
   isFocused,
   isBeforeRelocation,
+  daysToRelocation,
   onUpdateStep,
   onToggleStatus,
   onDeleteStep,
@@ -230,6 +248,7 @@ const CarouselCard = ({
   step: Step;
   isFocused: boolean;
   isBeforeRelocation: boolean;
+  daysToRelocation: number | null;
   onUpdateStep?: (id: string, field: keyof Step, value: any) => void;
   onToggleStatus?: (id: string, status: Step['status']) => void;
   onDeleteStep?: (id: string) => void;
@@ -244,6 +263,13 @@ const CarouselCard = ({
   const getStatusLabel = (status: Step['status']) => {
     const labels = { todo: 'Todo', progress: 'In Progress', done: 'Done' };
     return labels[status];
+  };
+  
+  const getDaysLabel = () => {
+    if (daysToRelocation === null) return null;
+    if (daysToRelocation === 0) return '🚀 Move day!';
+    if (daysToRelocation < 0) return `${Math.abs(daysToRelocation)} days before move`;
+    return `${daysToRelocation} days after move`;
   };
 
   return (
@@ -270,6 +296,11 @@ const CarouselCard = ({
               onClick={(e) => e.stopPropagation()}
               className="text-sm font-bold text-white bg-white/20 border border-white/30 rounded px-3 py-2 focus:bg-white/30 outline-none"
             />
+            {getDaysLabel() && (
+              <div className="text-xs font-bold text-white/80 bg-white/10 rounded-full px-3 py-1 text-center">
+                {getDaysLabel()}
+              </div>
+            )}
           </div>
         ) : (
           <>
@@ -279,6 +310,11 @@ const CarouselCard = ({
             <div className="text-sm font-bold text-white/70 uppercase tracking-wide">
               {parseDate(step.date)?.toLocaleString('en-US', { month: 'short', year: 'numeric' }) ?? 'No date'}
             </div>
+            {getDaysLabel() && (
+              <div className="text-xs font-bold text-white/60 mt-2">
+                {getDaysLabel()}
+              </div>
+            )}
           </>
         )}
       </div>
