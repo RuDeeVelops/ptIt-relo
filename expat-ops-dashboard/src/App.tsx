@@ -1,75 +1,25 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import type { User } from 'firebase/auth';
 import { 
-  Trash2, 
   Plus, 
   Plane,
-  GripVertical,
   LogOut,
   Grid3X3,
   Zap
 } from 'lucide-react';
-import { motion } from 'framer-motion';
 import { signInWithGoogle, signOut, onAuthChange } from './authService';
 import { 
   addStep, 
   updateStep, 
   deleteStep, 
-  subscribeToUserSteps
+  subscribeToUserSteps,
+  type Step
 } from './firestoreService';
 import { RelocationConfigPanel, type RelocationConfig } from './components/RelocationConfig';
 import { TimelineView } from './components/TimelineView';
 import { CarouselView } from './components/CarouselView';
 
-// --- LOCAL TYPES ---
-
-type StepStatus = 'todo' | 'progress' | 'done';
-
-interface Step {
-  id: string;
-  phase: string;
-  title: string;
-  notes: string;
-  budgetEstimated: number;
-  budgetActual: number;
-  budgetDeferred?: number;
-  status: StepStatus;
-  date?: Date | null;
-}
-
 // --- COMPONENTI UI ---
-
-const StatusBadge = ({ status, onClick }: { status: StepStatus, onClick: () => void }) => {
-  const styles = {
-    todo: 'bg-slate-100 text-slate-500 hover:bg-slate-200 border-slate-200',
-    progress: 'bg-blue-50 text-blue-600 hover:bg-blue-100 border-blue-200',
-    done: 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border-emerald-200'
-  };
-  
-  const labels = { todo: 'Da Fare', progress: 'In Corso', done: 'Fatto' };
-
-  return (
-    <button 
-      onClick={onClick}
-      className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border transition-colors ${styles[status]}`}
-    >
-      {labels[status]}
-    </button>
-  );
-};
-
-const CompactBudgetInput = ({ value, onChange, isActual }: { value: number, onChange: (val: number) => void, isActual?: boolean }) => (
-  <div className={`flex items-center rounded px-1.5 py-0.5 border ${isActual ? 'border-blue-200 bg-blue-50/30' : 'border-slate-200 bg-white'}`}>
-    <span className={`text-[10px] mr-1 ${isActual ? 'text-blue-400' : 'text-slate-400'}`}>€</span>
-    <input 
-      type="number" 
-      value={value} 
-      onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
-      className="w-12 bg-transparent text-xs font-semibold focus:outline-none text-right"
-      placeholder="0"
-    />
-  </div>
-);
 
 const LoginScreen = ({ onLogin }: { onLogin: () => void }) => (
   <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
@@ -177,17 +127,15 @@ export default function ExpatDashboard() {
     }
   };
 
-  const handleUpdateStep = async (id: string, field: keyof Step, value: any) => {
+  const handleUpdateStep = (id: string, field: keyof Step, value: any) => {
     // Update local state immediately for UX
     setSteps(prev => prev.map(s => s.id === id ? { ...s, [field]: value } : s));
     
-    // Save to Firestore if logged in
+    // Save to Firestore if logged in (fire and forget)
     if (user && !id.startsWith('demo-')) {
-      try {
-        await updateStep(id, { [field]: value } as any);
-      } catch (error) {
-        console.error('Error saving to Firebase:', error);
-      }
+      updateStep(id, { [field]: value } as any).catch(err => 
+        console.error('Error saving to Firebase:', err)
+      );
     }
   };
 
@@ -242,7 +190,6 @@ export default function ExpatDashboard() {
   // KPI
   const totalEst = steps.reduce((sum, s) => sum + s.budgetEstimated, 0);
   const totalAct = steps.reduce((sum, s) => sum + s.budgetActual, 0);
-  const totalDeferred = steps.reduce((sum, s) => sum + (s.budgetDeferred || 0), 0);
   const progress = Math.round((steps.filter(s => s.status === 'done').length / steps.length) * 100) || 0;
 
   if (!isLoaded) return <div className="flex h-screen items-center justify-center text-slate-400">Loading...</div>;
