@@ -235,12 +235,30 @@ const CarouselCard = ({
     >
       {/* DATE BADGE */}
       <div className="mb-6 pb-6 border-b border-white/20">
-        <div className="text-5xl font-black text-white/90 mb-2">
-          {step.date ? new Date(step.date).getDate() : '?'}
-        </div>
-        <div className="text-sm font-bold text-white/70 uppercase tracking-wide">
-          {step.date ? new Date(step.date).toLocaleString('en-US', { month: 'short', year: 'numeric' }) : 'No date'}
-        </div>
+        {isFocused && onUpdateStep ? (
+          <div className="flex flex-col gap-2">
+            <label className="text-xs font-bold text-white/60 uppercase">Date</label>
+            <input
+              type="date"
+              value={step.date ? new Date(step.date).toISOString().split('T')[0] : ''}
+              onChange={(e) => {
+                const date = e.target.value ? new Date(e.target.value + 'T00:00:00Z') : null;
+                onUpdateStep(step.id, 'date', date);
+              }}
+              onClick={(e) => e.stopPropagation()}
+              className="text-sm font-bold text-white bg-white/20 border border-white/30 rounded px-3 py-2 focus:bg-white/30 outline-none"
+            />
+          </div>
+        ) : (
+          <>
+            <div className="text-5xl font-black text-white/90 mb-2">
+              {step.date ? new Date(step.date).getDate() : '?'}
+            </div>
+            <div className="text-sm font-bold text-white/70 uppercase tracking-wide">
+              {step.date ? new Date(step.date).toLocaleString('en-US', { month: 'short', year: 'numeric' }) : 'No date'}
+            </div>
+          </>
+        )}
       </div>
 
       {/* PHASE */}

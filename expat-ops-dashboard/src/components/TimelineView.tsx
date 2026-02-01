@@ -231,13 +231,14 @@ const TimelineCard = ({
         <div className="flex-1 min-w-0">
           <div className="flex gap-2 items-start mb-2">
             <input
-              value={step.date ? new Date(step.date).toLocaleDateString() : 'No date'}
+              type="date"
+              value={step.date ? new Date(step.date).toISOString().split('T')[0] : ''}
               onClick={(e) => e.stopPropagation()}
               onChange={(e) => {
-                const date = e.target.value ? new Date(e.target.value) : null;
+                const date = e.target.value ? new Date(e.target.value + 'T00:00:00Z') : null;
                 onUpdateStep(step.id, 'date', date);
               }}
-              className="text-xs font-bold text-slate-400 bg-transparent focus:bg-slate-50 rounded px-1 outline-none"
+              className="text-xs font-bold text-slate-600 bg-white border border-slate-200 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <button
               onClick={(e) => {
