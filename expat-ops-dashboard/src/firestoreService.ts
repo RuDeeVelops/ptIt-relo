@@ -20,7 +20,10 @@ export interface Step {
   notes: string;
   budgetEstimated: number;
   budgetActual: number;
+  budgetDeferred?: number;
   status: 'todo' | 'progress' | 'done';
+  date?: Date | null;
+  orderIndex?: number;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -85,8 +88,15 @@ export const subscribeToUserSteps = (userId: string, callback: (steps: Step[]) =
       snapshot.forEach((doc) => {
         steps.push({ id: doc.id, ...doc.data() } as Step);
       });
-      // Sort by creation date
-      steps.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
+      // Sort by orderIndex if available, otherwise by creation date
+      steps.sort((a, b) => {
+        // If both have orderIndex, use it
+        if (typeof a.orderIndex === 'number' && typeof b.orderIndex === 'number') {
+          return a.orderIndex - b.orderIndex;
+        }
+        // Otherwise, fall back to creation date
+        return b.createdAt.toMillis() - a.createdAt.toMillis();
+      });
       callback(steps);
     });
   } catch (error) {

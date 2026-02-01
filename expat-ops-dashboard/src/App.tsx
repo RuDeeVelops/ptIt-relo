@@ -5,8 +5,11 @@ import {
   Plus, 
   Plane,
   GripVertical,
-  LogOut
+  LogOut,
+  Grid3X3,
+  Zap
 } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { signInWithGoogle, signOut, onAuthChange } from './authService';
 import { 
   addStep, 
@@ -14,6 +17,9 @@ import {
   deleteStep, 
   subscribeToUserSteps
 } from './firestoreService';
+import { RelocationConfigPanel, type RelocationConfig } from './components/RelocationConfig';
+import { TimelineView } from './components/TimelineView';
+import { CarouselView } from './components/CarouselView';
 
 // --- LOCAL TYPES ---
 
@@ -26,7 +32,9 @@ interface Step {
   notes: string;
   budgetEstimated: number;
   budgetActual: number;
+  budgetDeferred?: number;
   status: StepStatus;
+  date?: Date | null;
 }
 
 // --- COMPONENTI UI ---
@@ -91,6 +99,12 @@ export default function ExpatDashboard() {
   const [steps, setSteps] = useState<Step[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
   const [unsubscribe, setUnsubscribe] = useState<(() => void) | null>(null);
+  const [viewMode, setViewMode] = useState<'timeline' | 'carousel'>('timeline');
+  const [relocationConfig, setRelocationConfig] = useState<RelocationConfig>({
+    startDate: null,
+    relocationDate: null,
+    endDate: null,
+  });
   
   // Drag & Drop Refs
   const dragItem = useRef<number | null>(null);
@@ -112,7 +126,9 @@ export default function ExpatDashboard() {
             notes: fStep.notes,
             budgetEstimated: fStep.budgetEstimated,
             budgetActual: fStep.budgetActual,
+            budgetDeferred: fStep.budgetDeferred,
             status: fStep.status,
+            date: fStep.date ? new Date(fStep.date as any) : null,
           }));
           setSteps(localSteps);
           setIsLoaded(true);
@@ -147,13 +163,18 @@ export default function ExpatDashboard() {
     }
   };
 
-  const handleSort = () => {
-    let _steps = [...steps];
-    const draggedItemContent = _steps.splice(dragItem.current!, 1)[0];
-    _steps.splice(dragOverItem.current!, 0, draggedItemContent);
-    dragItem.current = null;
-    dragOverItem.current = null;
-    setSteps(_steps);
+  const handleSort = (newSteps: Step[]) => {
+    setSteps(newSteps);
+    // Save order indices to Firestore so order is preserved
+    if (user) {
+      newSteps.forEach((step, index) => {
+        if (!step.id.startsWith('demo-')) {
+          updateStep(step.id, { orderIndex: index } as any).catch(err => 
+            console.error('Error saving order:', err)
+          );
+        }
+      });
+    }
   };
 
   const handleUpdateStep = async (id: string, field: keyof Step, value: any) => {
@@ -206,7 +227,10 @@ export default function ExpatDashboard() {
         notes: '',
         budgetEstimated: 0,
         budgetActual: 0,
-        status: 'todo'
+        budgetDeferred: 0,
+        status: 'todo',
+        date: null,
+        orderIndex: steps.length,
       });
 
       // Local state will be updated by Firestore listener
@@ -218,6 +242,7 @@ export default function ExpatDashboard() {
   // KPI
   const totalEst = steps.reduce((sum, s) => sum + s.budgetEstimated, 0);
   const totalAct = steps.reduce((sum, s) => sum + s.budgetActual, 0);
+  const totalDeferred = steps.reduce((sum, s) => sum + (s.budgetDeferred || 0), 0);
   const progress = Math.round((steps.filter(s => s.status === 'done').length / steps.length) * 100) || 0;
 
   if (!isLoaded) return <div className="flex h-screen items-center justify-center text-slate-400">Loading...</div>;
@@ -263,6 +288,33 @@ export default function ExpatDashboard() {
 
           <div className="flex gap-2 items-center">
             <div className="text-xs text-slate-500">{user?.email}</div>
+            
+            {/* VIEW TOGGLE */}
+            <div className="flex gap-1 bg-slate-100 p-1 rounded-lg">
+              <button
+                onClick={() => setViewMode('timeline')}
+                className={`p-2 rounded transition-colors ${
+                  viewMode === 'timeline'
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-400 hover:text-slate-600'
+                }`}
+                title="Timeline View"
+              >
+                <Grid3X3 size={18} />
+              </button>
+              <button
+                onClick={() => setViewMode('carousel')}
+                className={`p-2 rounded transition-colors ${
+                  viewMode === 'carousel'
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-400 hover:text-slate-600'
+                }`}
+                title="Carousel View"
+              >
+                <Zap size={18} />
+              </button>
+            </div>
+
             <button onClick={handleAddStep} className="bg-slate-900 text-white p-2 rounded hover:bg-slate-700 transition" title="Aggiungi">
               <Plus size={18} />
             </button>
@@ -273,83 +325,29 @@ export default function ExpatDashboard() {
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 py-6">
-        
-        {/* GRID */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {steps.map((step, index) => (
-            <div 
-              key={step.id}
-              draggable
-              onDragStart={() => (dragItem.current = index)}
-              onDragEnter={() => (dragOverItem.current = index)}
-              onDragEnd={handleSort}
-              onDragOver={(e) => e.preventDefault()}
-              className={`
-                group relative bg-white rounded-lg border flex flex-col transition-all duration-200 hover:shadow-md
-                ${step.status === 'done' ? 'opacity-60 bg-slate-50 border-slate-200' : 'border-slate-200'}
-                ${dragItem.current === index ? 'opacity-0' : ''}
-              `}
-            >
-              
-              <div className="absolute top-2 left-2 text-slate-300 cursor-grab active:cursor-grabbing hover:text-slate-500 p-1">
-                <GripVertical size={14} />
-              </div>
+      {/* RELOCATION CONFIG PANEL */}
+      <RelocationConfigPanel config={relocationConfig} onUpdate={setRelocationConfig} />
 
-              <div className="p-3 pl-8 flex flex-col h-full gap-2">
-                
-                <div className="flex justify-between items-start">
-                  <div className="w-full">
-                    <input 
-                      value={step.phase}
-                      onChange={(e) => handleUpdateStep(step.id, 'phase', e.target.value)}
-                      className="text-[10px] font-bold text-blue-600 uppercase tracking-wider bg-transparent focus:bg-blue-50 rounded w-full outline-none mb-0.5"
-                    />
-                    <input 
-                      value={step.title}
-                      onChange={(e) => handleUpdateStep(step.id, 'title', e.target.value)}
-                      className="text-sm font-bold text-slate-900 bg-transparent focus:bg-slate-50 rounded w-full outline-none"
-                      placeholder="Titolo..."
-                    />
-                  </div>
-                </div>
-
-                <textarea 
-                  value={step.notes}
-                  onChange={(e) => handleUpdateStep(step.id, 'notes', e.target.value)}
-                  className="w-full text-xs text-slate-500 bg-slate-50 border border-transparent focus:border-blue-100 focus:bg-white rounded p-1.5 resize-none flex-grow outline-none min-h-[60px]"
-                  placeholder="Note..."
-                />
-
-                <div className="flex items-end justify-between mt-1 pt-2 border-t border-slate-100">
-                  
-                  <div className="flex gap-2">
-                    <div className="flex flex-col">
-                      <span className="text-[9px] font-bold text-slate-400 uppercase mb-0.5">Est.</span>
-                      <CompactBudgetInput value={step.budgetEstimated} onChange={(v) => handleUpdateStep(step.id, 'budgetEstimated', v)} />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-[9px] font-bold text-slate-400 uppercase mb-0.5">Real</span>
-                      <CompactBudgetInput value={step.budgetActual} onChange={(v) => handleUpdateStep(step.id, 'budgetActual', v)} isActual />
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col items-end gap-1">
-                    <button 
-                      onClick={() => handleDeleteStep(step.id)}
-                      className="text-slate-300 hover:text-red-500 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <Trash2 size={12} />
-                    </button>
-                    <StatusBadge status={step.status} onClick={() => handleToggleStatus(step.id, step.status)} />
-                  </div>
-
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
+      <main>
+        {viewMode === 'carousel' ? (
+          <CarouselView
+            steps={steps}
+            config={relocationConfig}
+            onUpdateStep={handleUpdateStep}
+            onDeleteStep={handleDeleteStep}
+            onToggleStatus={handleToggleStatus}
+            onSort={handleSort}
+          />
+        ) : (
+          <TimelineView
+            steps={steps}
+            config={relocationConfig}
+            onUpdateStep={handleUpdateStep}
+            onDeleteStep={handleDeleteStep}
+            onToggleStatus={handleToggleStatus}
+            onSort={handleSort}
+          />
+        )}
       </main>
     </div>
   );
