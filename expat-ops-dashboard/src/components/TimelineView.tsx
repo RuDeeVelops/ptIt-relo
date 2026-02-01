@@ -222,81 +222,140 @@ const TimelineCard = ({
   onToggleStatus: (id: string, status: Step['status']) => void;
 }) => {
   const statusStyles = {
-    todo: 'bg-slate-100 text-slate-500 border-slate-200',
-    progress: 'bg-blue-100 text-blue-600 border-blue-200',
-    done: 'bg-emerald-100 text-emerald-600 border-emerald-200',
+    todo: 'bg-amber-50 text-amber-600 border-amber-200 hover:bg-amber-100',
+    progress: 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100',
+    done: 'bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100',
   };
 
   const getStatusLabel = (status: Step['status']) => {
-    const labels = { todo: 'Todo', progress: 'In Progress', done: 'Done' };
+    const labels = { todo: '📋 Todo', progress: '🔄 In Progress', done: '✅ Done' };
     return labels[status];
   };
+
+  // Get today's date for the date picker min value
+  const today = new Date().toISOString().split('T')[0];
 
   return (
     <motion.div
       layout
-      draggable
-      onDragStart={() => (dragItem.current = index)}
-      onDragEnter={() => (dragOverItem.current = index)}
-      onDragEnd={onDragEnd}
-      onDragOver={(e) => e.preventDefault()}
-      initial={{ opacity: 0, x: -10 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: 10 }}
-      className="group relative bg-white rounded-lg border border-slate-200 p-4 hover:shadow-md transition-all cursor-move"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      className="group relative bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-lg transition-all overflow-hidden"
     >
-      <div className="flex gap-3">
-        <div className="text-slate-300 pt-1 flex-shrink-0">
-          <GripVertical size={16} />
+      {/* Drag Handle - Only this area is draggable */}
+      <div
+        draggable
+        onDragStart={() => (dragItem.current = index)}
+        onDragEnter={() => (dragOverItem.current = index)}
+        onDragEnd={onDragEnd}
+        onDragOver={(e) => e.preventDefault()}
+        className="absolute left-0 top-0 bottom-0 w-8 bg-slate-50 border-r border-slate-100 flex items-center justify-center cursor-grab active:cursor-grabbing hover:bg-slate-100 transition-colors"
+      >
+        <GripVertical size={14} className="text-slate-400" />
+      </div>
+
+      {/* Card Content */}
+      <div className="ml-8 p-4">
+        {/* Top Row: Phase & Status */}
+        <div className="flex items-center justify-between mb-3">
+          <input
+            value={step.phase}
+            onChange={(e) => onUpdateStep(step.id, 'phase', e.target.value)}
+            placeholder="Phase..."
+            className="text-[10px] font-bold text-blue-600 uppercase tracking-widest bg-transparent hover:bg-blue-50 focus:bg-blue-50 rounded px-1.5 py-0.5 outline-none border border-transparent focus:border-blue-200 transition-all max-w-[120px]"
+          />
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleStatus(step.id, step.status);
+            }}
+            className={`text-[10px] font-bold px-2.5 py-1 rounded-full border transition-all ${statusStyles[step.status]}`}
+          >
+            {getStatusLabel(step.status)}
+          </button>
         </div>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex gap-2 items-start mb-2">
+        {/* Title */}
+        <input
+          value={step.title}
+          onChange={(e) => onUpdateStep(step.id, 'title', e.target.value)}
+          placeholder="Task title..."
+          className="w-full text-base font-bold text-slate-900 bg-transparent hover:bg-slate-50 focus:bg-slate-50 rounded px-2 py-1 outline-none border border-transparent focus:border-slate-200 transition-all mb-2"
+        />
+
+        {/* Notes */}
+        <textarea
+          value={step.notes}
+          onChange={(e) => onUpdateStep(step.id, 'notes', e.target.value)}
+          placeholder="Add notes..."
+          rows={2}
+          className="w-full text-xs text-slate-600 bg-slate-50 hover:bg-slate-100 focus:bg-white rounded-lg px-3 py-2 outline-none border border-slate-100 focus:border-slate-300 transition-all resize-none mb-3"
+        />
+
+        {/* Bottom Row: Date & Budget */}
+        <div className="flex items-center justify-between gap-4 pt-3 border-t border-slate-100">
+          {/* Date Picker */}
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold text-slate-400 uppercase">📅</span>
             <input
               type="date"
               value={formatDateForInput(step.date)}
-              onClick={(e) => e.stopPropagation()}
+              min={today}
               onChange={(e) => {
                 const date = e.target.value ? new Date(e.target.value + 'T00:00:00Z') : null;
                 onUpdateStep(step.id, 'date', date);
               }}
-              className="text-xs font-bold text-slate-600 bg-white border border-slate-200 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
             />
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleStatus(step.id, step.status);
-              }}
-              className={`text-[10px] font-bold px-2 py-0.5 rounded border transition-colors ${statusStyles[step.status]}`}
-            >
-              {getStatusLabel(step.status)}
-            </button>
           </div>
 
-          <h4 className="text-sm font-bold text-slate-900 mb-1">{step.title}</h4>
-          {step.notes && (
-            <p className="text-xs text-slate-600 line-clamp-2 mb-2">{step.notes}</p>
-          )}
-
-          <div className="flex gap-2 items-center text-xs">
-            <span className="text-slate-400">Est: <span className="font-bold text-slate-600">€{step.budgetEstimated}</span></span>
-            <span className="text-slate-300">•</span>
-            <span className={step.budgetActual > step.budgetEstimated ? 'text-red-500' : 'text-slate-400'}>
-              Real: <span className="font-bold">${step.budgetActual}</span>
-            </span>
+          {/* Budget */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] font-bold text-slate-400">Est:</span>
+              <div className="flex items-center bg-slate-50 rounded px-1.5 py-0.5 border border-slate-200">
+                <span className="text-[10px] text-slate-400">€</span>
+                <input
+                  type="number"
+                  value={step.budgetEstimated}
+                  onChange={(e) => onUpdateStep(step.id, 'budgetEstimated', parseFloat(e.target.value) || 0)}
+                  className="w-14 bg-transparent text-xs font-bold text-slate-700 outline-none text-right"
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] font-bold text-slate-400">Real:</span>
+              <div className={`flex items-center rounded px-1.5 py-0.5 border ${
+                step.budgetActual > step.budgetEstimated 
+                  ? 'bg-red-50 border-red-200' 
+                  : 'bg-emerald-50 border-emerald-200'
+              }`}>
+                <span className="text-[10px] text-slate-400">€</span>
+                <input
+                  type="number"
+                  value={step.budgetActual}
+                  onChange={(e) => onUpdateStep(step.id, 'budgetActual', parseFloat(e.target.value) || 0)}
+                  className={`w-14 bg-transparent text-xs font-bold outline-none text-right ${
+                    step.budgetActual > step.budgetEstimated ? 'text-red-600' : 'text-emerald-600'
+                  }`}
+                />
+              </div>
+            </div>
           </div>
         </div>
-
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onDeleteStep(step.id);
-          }}
-          className="text-slate-300 hover:text-red-500 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
-        >
-          <Trash2 size={14} />
-        </button>
       </div>
+
+      {/* Delete Button */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onDeleteStep(step.id);
+        }}
+        className="absolute top-2 right-2 p-1.5 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all"
+      >
+        <Trash2 size={14} />
+      </button>
     </motion.div>
   );
 };
