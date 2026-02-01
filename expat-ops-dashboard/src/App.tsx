@@ -55,10 +55,6 @@ export default function ExpatDashboard() {
     relocationDate: null,
     endDate: null,
   });
-  
-  // Drag & Drop Refs
-  const dragItem = useRef<number | null>(null);
-  const dragOverItem = useRef<number | null>(null);
 
   // Auth state listener
   useEffect(() => {
@@ -68,19 +64,7 @@ export default function ExpatDashboard() {
       if (authUser) {
         // Subscribe to user's steps from Firestore
         const unsubSteps = subscribeToUserSteps(authUser.uid, (firestoreSteps) => {
-          // Convert Firestore documents to local format
-          const localSteps: Step[] = firestoreSteps.map(fStep => ({
-            id: fStep.id,
-            phase: fStep.phase,
-            title: fStep.title,
-            notes: fStep.notes,
-            budgetEstimated: fStep.budgetEstimated,
-            budgetActual: fStep.budgetActual,
-            budgetDeferred: fStep.budgetDeferred,
-            status: fStep.status,
-            date: fStep.date ? new Date(fStep.date as any) : null,
-          }));
-          setSteps(localSteps);
+          setSteps(firestoreSteps);
           setIsLoaded(true);
         });
         setUnsubscribe(() => unsubSteps);
@@ -139,13 +123,13 @@ export default function ExpatDashboard() {
     }
   };
 
-  const handleToggleStatus = async (id: string, current: StepStatus) => {
-    const next: Record<StepStatus, StepStatus> = {
+  const handleToggleStatus = (id: string, current: Step['status']) => {
+    const next: Record<Step['status'], Step['status']> = {
       'todo': 'progress',
       'progress': 'done',
       'done': 'todo'
     };
-    await handleUpdateStep(id, 'status', next[current]);
+    handleUpdateStep(id, 'status', next[current]);
   };
 
   const handleDeleteStep = async (id: string) => {
