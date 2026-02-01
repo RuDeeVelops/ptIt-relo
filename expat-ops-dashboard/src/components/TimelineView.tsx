@@ -232,7 +232,11 @@ const TimelineCard = ({
           <div className="flex gap-2 items-start mb-2">
             <input
               type="date"
-              value={step.date ? new Date(step.date).toISOString().split('T')[0] : ''}
+              value={
+                step.date 
+                  ? new Date(typeof step.date === 'string' ? step.date : step.date).toISOString().split('T')[0]
+                  : ''
+              }
               onClick={(e) => e.stopPropagation()}
               onChange={(e) => {
                 const date = e.target.value ? new Date(e.target.value + 'T00:00:00Z') : null;
