@@ -92,6 +92,7 @@ export const TimelineView = ({
   onToggleStatus,
 }: TimelineViewProps) => {
   const [showDateSettings, setShowDateSettings] = useState(false);
+  const [showMonthsTimeline, setShowMonthsTimeline] = useState(true);
   const sortedSteps = useMemo(() => {
     const withDates = steps.filter(s => s.date);
     const noDates = steps.filter(s => !s.date);
@@ -282,13 +283,30 @@ export const TimelineView = ({
   return (
     <div className="flex flex-col h-full">
       {/* STICKY TIMELINE HEADER */}
-      <div className="sticky top-0 z-10 bg-white border-b border-slate-200 shadow-sm px-4 py-4">
+      <div className="sticky top-0 z-10 bg-white border-b border-slate-200 shadow-sm px-4 py-3">
         <div className="max-w-6xl mx-auto">
-          {/* Header Row with Title and Settings Toggle */}
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-              Journey Timeline
-            </h2>
+          {/* Header Row with Title, Chevron Toggle, and Settings */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                Journey Timeline
+              </h2>
+              {/* Chevron to toggle months */}
+              {config.startDate && config.endDate && timelineMonths.months.length > 0 && (
+                <button
+                  onClick={() => setShowMonthsTimeline(!showMonthsTimeline)}
+                  className="p-1 rounded hover:bg-slate-100 transition-colors"
+                  title={showMonthsTimeline ? 'Hide timeline' : 'Show timeline'}
+                >
+                  <motion.div
+                    animate={{ rotate: showMonthsTimeline ? 0 : -90 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <ChevronDown size={16} className="text-slate-400" />
+                  </motion.div>
+                </button>
+              )}
+            </div>
             <button
               onClick={() => setShowDateSettings(!showDateSettings)}
               className={`flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-lg transition-all ${
@@ -306,15 +324,6 @@ export const TimelineView = ({
             </button>
           </div>
 
-          {/* Date Summary (always visible) */}
-          <div className="flex flex-wrap gap-3 text-xs text-slate-500 mb-4">
-            <span>Start: <span className={`font-bold ${config.startDate ? 'text-slate-800' : 'text-amber-500'}`}>{formatDate(config.startDate)}</span></span>
-            <span className="text-slate-300">•</span>
-            <span>🚀 Move: <span className={`font-bold ${config.relocationDate ? 'text-red-500' : 'text-amber-500'}`}>{formatDate(config.relocationDate)}</span></span>
-            <span className="text-slate-300">•</span>
-            <span>End: <span className={`font-bold ${config.endDate ? 'text-slate-800' : 'text-amber-500'}`}>{formatDate(config.endDate)}</span></span>
-          </div>
-
           {/* Collapsible Date Picker */}
           <AnimatePresence>
             {showDateSettings && (
@@ -324,7 +333,15 @@ export const TimelineView = ({
                 exit={{ opacity: 0, height: 0 }}
                 className="overflow-hidden"
               >
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 bg-slate-50 rounded-lg border border-slate-200 mb-4">
+                {/* Date Summary */}
+                <div className="flex flex-wrap gap-3 text-xs text-slate-500 mt-3 mb-3">
+                  <span>Start: <span className={`font-bold ${config.startDate ? 'text-slate-800' : 'text-amber-500'}`}>{formatDate(config.startDate)}</span></span>
+                  <span className="text-slate-300">•</span>
+                  <span>🚀 Move: <span className={`font-bold ${config.relocationDate ? 'text-red-500' : 'text-amber-500'}`}>{formatDate(config.relocationDate)}</span></span>
+                  <span className="text-slate-300">•</span>
+                  <span>End: <span className={`font-bold ${config.endDate ? 'text-slate-800' : 'text-amber-500'}`}>{formatDate(config.endDate)}</span></span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 bg-slate-50 rounded-lg border border-slate-200 mb-3">
                   <div className="flex flex-col">
                     <label className="text-[10px] font-bold text-slate-500 uppercase mb-1.5">Process Start</label>
                     <input
@@ -357,14 +374,21 @@ export const TimelineView = ({
             )}
           </AnimatePresence>
 
-          {/* MONTHS DISPLAY */}
-          {config.startDate && config.endDate && timelineMonths.months.length > 0 && (
-            <div className="pb-2">
-              <p className="text-[10px] text-slate-400 mb-3 text-center">Click a month to jump to its tasks</p>
+          {/* COLLAPSIBLE MONTHS DISPLAY */}
+          <AnimatePresence>
+            {showMonthsTimeline && config.startDate && config.endDate && timelineMonths.months.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden"
+              >
+                <div className="pt-3">
+                  <p className="text-[10px] text-slate-400 mb-2 text-center">Click a month to jump to its tasks</p>
               
-              {/* Timeline container with hover arrows */}
-              <div className="relative">
-                {/* Left Arrow */}
+                  {/* Timeline container with hover arrows */}
+                  <div className="relative">
+                    {/* Left Arrow */}
                 <div 
                   className={`absolute left-0 top-0 bottom-0 z-10 flex items-center transition-opacity duration-300 ${
                     canScrollLeft ? 'opacity-30 hover:opacity-100' : 'opacity-0 pointer-events-none'
@@ -434,13 +458,15 @@ export const TimelineView = ({
                   </div>
                 </div>
               </div>
-            </div>
-          )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 
       {/* SCROLLABLE TASK ZONES */}
-      <div className="flex-1 overflow-y-auto px-4 pb-8">
+      <div className="flex-1 overflow-y-auto px-4 pb-8 pt-4">
         <div className="max-w-6xl mx-auto">
           <div className="space-y-6">
             {/* PRE-RELOCATION ZONE */}
