@@ -560,7 +560,7 @@ const TimelineCard = ({
               <div className="text-[10px] sm:text-xs font-bold uppercase tracking-wide opacity-90">
                 {stepDate.toLocaleString('en-US', { month: 'short' })}
               </div>
-              <div className="text-[9px] sm:text-[10px] font-medium opacity-75">
+              <div className="text-[10px] sm:text-xs font-bold opacity-80">
                 {stepDate.getFullYear()}
               </div>
             </>
