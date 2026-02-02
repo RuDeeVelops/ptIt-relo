@@ -1,6 +1,6 @@
-import { useMemo, useState, useRef, useEffect } from 'react';
+import { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trash2, ChevronDown } from 'lucide-react';
+import { Trash2, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Step } from '../firestoreService';
 import type { RelocationConfig } from './RelocationConfig';
 
@@ -175,9 +175,24 @@ export const TimelineView = ({
     return { months, relocationIndex };
   }, [config.startDate, config.endDate, config.relocationDate]);
 
-  // Auto-scroll to center on relocation month
+  // Timeline scrolling with hover arrows
   const timelineRef = useRef<HTMLDivElement>(null);
-  
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+  const [leftArrowHover, setLeftArrowHover] = useState(false);
+  const [rightArrowHover, setRightArrowHover] = useState(false);
+  const scrollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Check scroll position to show/hide arrows
+  const updateScrollIndicators = useCallback(() => {
+    if (timelineRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = timelineRef.current;
+      setCanScrollLeft(scrollLeft > 5);
+      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 5);
+    }
+  }, []);
+
+  // Auto-scroll to center on relocation month on mount
   useEffect(() => {
     if (timelineRef.current && timelineMonths.relocationIndex >= 0) {
       const container = timelineRef.current;
@@ -192,8 +207,52 @@ export const TimelineView = ({
           container.scrollTo({ left: scrollTo, behavior: 'smooth' });
         }
       }
+      // Update indicators after centering
+      setTimeout(updateScrollIndicators, 500);
     }
-  }, [timelineMonths]);
+  }, [timelineMonths, updateScrollIndicators]);
+
+  // Listen to scroll events
+  useEffect(() => {
+    const container = timelineRef.current;
+    if (container) {
+      updateScrollIndicators();
+      container.addEventListener('scroll', updateScrollIndicators);
+      window.addEventListener('resize', updateScrollIndicators);
+      return () => {
+        container.removeEventListener('scroll', updateScrollIndicators);
+        window.removeEventListener('resize', updateScrollIndicators);
+      };
+    }
+  }, [updateScrollIndicators, timelineMonths]);
+
+  // Continuous scroll while hovering
+  const startScrolling = useCallback((direction: 'left' | 'right') => {
+    const scroll = () => {
+      if (timelineRef.current) {
+        const scrollAmount = direction === 'left' ? -8 : 8;
+        timelineRef.current.scrollBy({ left: scrollAmount });
+      }
+    };
+    scroll();
+    scrollIntervalRef.current = setInterval(scroll, 20);
+  }, []);
+
+  const stopScrolling = useCallback(() => {
+    if (scrollIntervalRef.current) {
+      clearInterval(scrollIntervalRef.current);
+      scrollIntervalRef.current = null;
+    }
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (scrollIntervalRef.current) {
+        clearInterval(scrollIntervalRef.current);
+      }
+    };
+  }, []);
 
   return (
     <div className="space-y-8">
@@ -207,30 +266,78 @@ export const TimelineView = ({
           {/* MONTHS DISPLAY */}
           {config.startDate && config.endDate && timelineMonths.months.length > 0 && (
             <div className="mb-8 pb-6 border-b border-slate-100">
-              <p className="text-[10px] text-slate-400 mb-3 text-center">Click a month to jump to its tasks • Centered on relocation date</p>
-              <div 
-                ref={timelineRef}
-                className="overflow-x-auto pb-3 pt-1 -mx-4 px-4 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent"
-              >
-                <div className="flex gap-2 sm:gap-3 min-w-max justify-start sm:justify-center">
-                  {timelineMonths.months.map((monthDate, i) => {
-                    const relocationDate = parseDate(config.relocationDate);
-                    const isRelocation = relocationDate &&
-                      monthDate.getMonth() === relocationDate.getMonth() &&
-                      monthDate.getFullYear() === relocationDate.getFullYear();
-                    const taskCount = getTaskCountForMonth(monthDate.getFullYear(), monthDate.getMonth());
+              <p className="text-[10px] text-slate-400 mb-3 text-center">Click a month to jump to its tasks</p>
+              
+              {/* Timeline container with hover arrows */}
+              <div className="relative">
+                {/* Left Arrow */}
+                <div 
+                  className={`absolute left-0 top-0 bottom-0 z-10 flex items-center transition-opacity duration-300 ${
+                    canScrollLeft ? 'opacity-30 hover:opacity-100' : 'opacity-0 pointer-events-none'
+                  }`}
+                  onMouseEnter={() => { setLeftArrowHover(true); startScrolling('left'); }}
+                  onMouseLeave={() => { setLeftArrowHover(false); stopScrolling(); }}
+                >
+                  <div className={`
+                    flex items-center justify-center w-10 h-full cursor-pointer
+                    bg-gradient-to-r from-slate-100 via-slate-100/80 to-transparent
+                    transition-all duration-200
+                    ${leftArrowHover ? 'from-slate-200' : ''}
+                  `}>
+                    <ChevronLeft 
+                      size={24} 
+                      className={`text-slate-500 transition-transform ${leftArrowHover ? 'scale-125 text-slate-700' : ''}`} 
+                    />
+                  </div>
+                </div>
 
-                    return (
-                      <div key={i} className="flex-shrink-0 text-center">
-                        <MonthMarker 
-                          date={monthDate} 
-                          isRelocation={!!isRelocation}
-                          taskCount={taskCount}
-                          onClick={() => scrollToMonth(monthDate.getFullYear(), monthDate.getMonth())}
-                        />
-                      </div>
-                    );
-                  })}
+                {/* Scrollable months container - hidden scrollbar */}
+                <div 
+                  ref={timelineRef}
+                  className="overflow-x-auto pb-3 pt-1 scrollbar-none"
+                  style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                >
+                  <div className="flex gap-2 sm:gap-3 min-w-max justify-center px-12">
+                    {timelineMonths.months.map((monthDate, i) => {
+                      const relocationDate = parseDate(config.relocationDate);
+                      const isRelocation = relocationDate &&
+                        monthDate.getMonth() === relocationDate.getMonth() &&
+                        monthDate.getFullYear() === relocationDate.getFullYear();
+                      const taskCount = getTaskCountForMonth(monthDate.getFullYear(), monthDate.getMonth());
+
+                      return (
+                        <div key={i} className="flex-shrink-0 text-center">
+                          <MonthMarker 
+                            date={monthDate} 
+                            isRelocation={!!isRelocation}
+                            taskCount={taskCount}
+                            onClick={() => scrollToMonth(monthDate.getFullYear(), monthDate.getMonth())}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Right Arrow */}
+                <div 
+                  className={`absolute right-0 top-0 bottom-0 z-10 flex items-center transition-opacity duration-300 ${
+                    canScrollRight ? 'opacity-30 hover:opacity-100' : 'opacity-0 pointer-events-none'
+                  }`}
+                  onMouseEnter={() => { setRightArrowHover(true); startScrolling('right'); }}
+                  onMouseLeave={() => { setRightArrowHover(false); stopScrolling(); }}
+                >
+                  <div className={`
+                    flex items-center justify-center w-10 h-full cursor-pointer
+                    bg-gradient-to-l from-slate-100 via-slate-100/80 to-transparent
+                    transition-all duration-200
+                    ${rightArrowHover ? 'from-slate-200' : ''}
+                  `}>
+                    <ChevronRight 
+                      size={24} 
+                      className={`text-slate-500 transition-transform ${rightArrowHover ? 'scale-125 text-slate-700' : ''}`} 
+                    />
+                  </div>
                 </div>
               </div>
             </div>

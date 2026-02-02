@@ -3,9 +3,7 @@ import type { User } from 'firebase/auth';
 import { 
   Plus, 
   Plane,
-  LogOut,
-  Grid3X3,
-  Zap
+  LogOut
 } from 'lucide-react';
 import { signInWithGoogle, signOut, onAuthChange } from './authService';
 import { 
@@ -19,7 +17,6 @@ import {
 } from './firestoreService';
 import { RelocationConfigPanel, type RelocationConfig } from './components/RelocationConfig';
 import { TimelineView } from './components/TimelineView';
-import { CarouselView } from './components/CarouselView';
 
 // --- COMPONENTI UI ---
 
@@ -51,7 +48,6 @@ export default function ExpatDashboard() {
   const [steps, setSteps] = useState<Step[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
   const [unsubscribe, setUnsubscribe] = useState<(() => void) | null>(null);
-  const [viewMode, setViewMode] = useState<'timeline' | 'carousel'>('timeline');
   const [relocationConfig, setRelocationConfig] = useState<RelocationConfig>({
     startDate: null,
     relocationDate: null,
@@ -129,20 +125,6 @@ export default function ExpatDashboard() {
       await signOut();
     } catch (error) {
       console.error('Logout failed:', error);
-    }
-  };
-
-  const handleSort = (newSteps: Step[]) => {
-    setSteps(newSteps);
-    // Save order indices to Firestore so order is preserved
-    if (user) {
-      newSteps.forEach((step, index) => {
-        if (!step.id.startsWith('demo-')) {
-          updateStep(step.id, { orderIndex: index } as any).catch(err => 
-            console.error('Error saving order:', err)
-          );
-        }
-      });
     }
   };
 
@@ -255,32 +237,6 @@ export default function ExpatDashboard() {
           <div className="flex gap-2 items-center">
             <div className="text-xs text-slate-500">{user?.email}</div>
             
-            {/* VIEW TOGGLE */}
-            <div className="flex gap-1 bg-slate-100 p-1 rounded-lg">
-              <button
-                onClick={() => setViewMode('timeline')}
-                className={`p-2 rounded transition-colors ${
-                  viewMode === 'timeline'
-                    ? 'bg-white text-slate-900 shadow-sm'
-                    : 'text-slate-400 hover:text-slate-600'
-                }`}
-                title="Timeline View"
-              >
-                <Grid3X3 size={18} />
-              </button>
-              <button
-                onClick={() => setViewMode('carousel')}
-                className={`p-2 rounded transition-colors ${
-                  viewMode === 'carousel'
-                    ? 'bg-white text-slate-900 shadow-sm'
-                    : 'text-slate-400 hover:text-slate-600'
-                }`}
-                title="Carousel View"
-              >
-                <Zap size={18} />
-              </button>
-            </div>
-
             <button onClick={handleAddStep} className="bg-slate-900 text-white p-2 rounded hover:bg-slate-700 transition" title="Aggiungi">
               <Plus size={18} />
             </button>
@@ -297,24 +253,13 @@ export default function ExpatDashboard() {
       </div>
 
       <main className="flex-1 overflow-auto">
-        {viewMode === 'carousel' ? (
-          <CarouselView
-            steps={steps}
-            config={relocationConfig}
-            onUpdateStep={handleUpdateStep}
-            onDeleteStep={handleDeleteStep}
-            onToggleStatus={handleToggleStatus}
-            onSort={handleSort}
-          />
-        ) : (
-          <TimelineView
-            steps={steps}
-            config={relocationConfig}
-            onUpdateStep={handleUpdateStep}
-            onDeleteStep={handleDeleteStep}
-            onToggleStatus={handleToggleStatus}
-          />
-        )}
+        <TimelineView
+          steps={steps}
+          config={relocationConfig}
+          onUpdateStep={handleUpdateStep}
+          onDeleteStep={handleDeleteStep}
+          onToggleStatus={handleToggleStatus}
+        />
       </main>
     </div>
   );
