@@ -93,6 +93,8 @@ export const TimelineView = ({
 }: TimelineViewProps) => {
   const [showDateSettings, setShowDateSettings] = useState(false);
   const [showMonthsTimeline, setShowMonthsTimeline] = useState(true);
+  const [currentVisibleMonth, setCurrentVisibleMonth] = useState<{ year: number; month: number } | null>(null);
+  const taskZonesRef = useRef<HTMLDivElement>(null);
   const sortedSteps = useMemo(() => {
     const withDates = steps.filter(s => s.date);
     const noDates = steps.filter(s => !s.date);
@@ -124,6 +126,33 @@ export const TimelineView = ({
   const beforeSteps = sortedSteps.filter(s => isBeforeRelocation(s) === true);
   const afterSteps = sortedSteps.filter(s => isBeforeRelocation(s) === false);
   const undatedSteps = sortedSteps.filter(s => !s.date);
+
+  // Group steps by month for dividers
+  const groupStepsByMonth = (stepsToGroup: Step[]) => {
+    const groups: { key: string; year: number; month: number; steps: Step[] }[] = [];
+    let currentGroup: { key: string; year: number; month: number; steps: Step[] } | null = null;
+    
+    stepsToGroup.forEach(step => {
+      const stepDate = parseDate(step.date);
+      if (!stepDate) return;
+      
+      const year = stepDate.getFullYear();
+      const month = stepDate.getMonth();
+      const key = `${year}-${month}`;
+      
+      if (!currentGroup || currentGroup.key !== key) {
+        currentGroup = { key, year, month, steps: [step] };
+        groups.push(currentGroup);
+      } else {
+        currentGroup.steps.push(step);
+      }
+    });
+    
+    return groups;
+  };
+
+  const beforeStepsGrouped = groupStepsByMonth(beforeSteps);
+  const afterStepsGrouped = groupStepsByMonth(afterSteps);
 
   // Count tasks per month
   const getTaskCountForMonth = (year: number, month: number): number => {
@@ -261,6 +290,67 @@ export const TimelineView = ({
       }
     };
   }, []);
+
+  // Sync vertical card scroll with horizontal timeline
+  const scrollTimelineToMonth = useCallback((year: number, month: number) => {
+    if (timelineRef.current && timelineMonths.months.length > 0) {
+      const monthIndex = timelineMonths.months.findIndex(m => 
+        m.getFullYear() === year && m.getMonth() === month
+      );
+      if (monthIndex >= 0) {
+        const container = timelineRef.current;
+        const flexContainer = container.firstElementChild as HTMLElement;
+        if (flexContainer && flexContainer.children[monthIndex]) {
+          const monthElement = flexContainer.children[monthIndex] as HTMLElement;
+          const containerWidth = container.offsetWidth;
+          const elementLeft = monthElement.offsetLeft;
+          const elementWidth = monthElement.offsetWidth;
+          const scrollTo = elementLeft - (containerWidth / 2) + (elementWidth / 2);
+          container.scrollTo({ left: scrollTo, behavior: 'smooth' });
+        }
+      }
+    }
+  }, [timelineMonths.months]);
+
+  // Handle task zones scroll to detect current visible month
+  useEffect(() => {
+    const taskZones = taskZonesRef.current;
+    if (!taskZones) return;
+
+    const handleScroll = () => {
+      // Find all month dividers and check which one is closest to top
+      const dividers = taskZones.querySelectorAll('[data-month-divider]');
+      let closestYear = 0;
+      let closestMonthNum = 0;
+      let closestDistance = Infinity;
+      let found = false;
+
+      dividers.forEach((divider) => {
+        const rect = divider.getBoundingClientRect();
+        const containerRect = taskZones.getBoundingClientRect();
+        const distance = Math.abs(rect.top - containerRect.top - 50);
+        
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          closestYear = parseInt(divider.getAttribute('data-year') || '0');
+          closestMonthNum = parseInt(divider.getAttribute('data-month') || '0');
+          found = true;
+        }
+      });
+
+      if (found && showMonthsTimeline) {
+        if (!currentVisibleMonth || 
+            currentVisibleMonth.year !== closestYear || 
+            currentVisibleMonth.month !== closestMonthNum) {
+          setCurrentVisibleMonth({ year: closestYear, month: closestMonthNum });
+          scrollTimelineToMonth(closestYear, closestMonthNum);
+        }
+      }
+    };
+
+    taskZones.addEventListener('scroll', handleScroll);
+    return () => taskZones.removeEventListener('scroll', handleScroll);
+  }, [showMonthsTimeline, currentVisibleMonth, scrollTimelineToMonth]);
 
   // Date config helpers
   const formatDate = (date: Date | null) => {
@@ -466,7 +556,7 @@ export const TimelineView = ({
       </div>
 
       {/* SCROLLABLE TASK ZONES */}
-      <div className="flex-1 overflow-y-auto px-4 pb-8 pt-4">
+      <div ref={taskZonesRef} className="flex-1 overflow-y-auto px-4 pb-8 pt-4">
         <div className="max-w-6xl mx-auto">
           <div className="space-y-6">
             {/* PRE-RELOCATION ZONE */}
@@ -487,16 +577,35 @@ export const TimelineView = ({
                   </div>
                 </div>
                 <div className="space-y-3 pl-4 pr-4 py-4 bg-blue-50/30 rounded-lg border border-blue-100/50">
-                  {beforeSteps.length > 0 ? beforeSteps.map((step) => (
-                    <TimelineCard
-                      key={step.id}
-                      step={step}
-                      teamMembers={teamMembers}
-                      onUpdateStep={onUpdateStep}
-                      onDeleteStep={onDeleteStep}
-                      onToggleStatus={onToggleStatus}
-                      relocationDate={parseDate(config.relocationDate)}
-                    />
+                  {beforeSteps.length > 0 ? beforeStepsGrouped.map((group, groupIndex) => (
+                    <div key={group.key}>
+                      {/* Month Divider */}
+                      <div 
+                        data-month-divider
+                        data-year={group.year}
+                        data-month={group.month}
+                        className={`flex items-center gap-2 ${groupIndex > 0 ? 'mt-4 pt-3 border-t border-blue-200/50' : ''}`}
+                      >
+                        <div className="text-[10px] font-bold text-blue-500/70 uppercase tracking-wider">
+                          {new Date(group.year, group.month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                        </div>
+                        <div className="flex-1 h-px bg-blue-200/30"></div>
+                      </div>
+                      {/* Cards for this month */}
+                      <div className="space-y-3 mt-2">
+                        {group.steps.map((step) => (
+                          <TimelineCard
+                            key={step.id}
+                            step={step}
+                            teamMembers={teamMembers}
+                            onUpdateStep={onUpdateStep}
+                            onDeleteStep={onDeleteStep}
+                            onToggleStatus={onToggleStatus}
+                            relocationDate={parseDate(config.relocationDate)}
+                          />
+                        ))}
+                      </div>
+                    </div>
                   )) : (
                     <div className="text-center py-8 text-slate-400 text-sm">
                       No tasks scheduled before relocation
@@ -539,16 +648,35 @@ export const TimelineView = ({
                   </div>
                 </div>
                 <div className="space-y-3 pl-4 pr-4 py-4 bg-emerald-50/30 rounded-lg border border-emerald-100/50">
-                  {afterSteps.length > 0 ? afterSteps.map((step) => (
-                    <TimelineCard
-                      key={step.id}
-                      step={step}
-                      teamMembers={teamMembers}
-                      onUpdateStep={onUpdateStep}
-                      onDeleteStep={onDeleteStep}
-                      onToggleStatus={onToggleStatus}
-                      relocationDate={parseDate(config.relocationDate)}
-                    />
+                  {afterSteps.length > 0 ? afterStepsGrouped.map((group, groupIndex) => (
+                    <div key={group.key}>
+                      {/* Month Divider */}
+                      <div 
+                        data-month-divider
+                        data-year={group.year}
+                        data-month={group.month}
+                        className={`flex items-center gap-2 ${groupIndex > 0 ? 'mt-4 pt-3 border-t border-emerald-200/50' : ''}`}
+                      >
+                        <div className="text-[10px] font-bold text-emerald-500/70 uppercase tracking-wider">
+                          {new Date(group.year, group.month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                        </div>
+                        <div className="flex-1 h-px bg-emerald-200/30"></div>
+                      </div>
+                      {/* Cards for this month */}
+                      <div className="space-y-3 mt-2">
+                        {group.steps.map((step) => (
+                          <TimelineCard
+                            key={step.id}
+                            step={step}
+                            teamMembers={teamMembers}
+                            onUpdateStep={onUpdateStep}
+                            onDeleteStep={onDeleteStep}
+                            onToggleStatus={onToggleStatus}
+                            relocationDate={parseDate(config.relocationDate)}
+                          />
+                        ))}
+                      </div>
+                    </div>
                   )) : (
                     <div className="text-center py-8 text-slate-400 text-sm">
                       No tasks scheduled after relocation
