@@ -334,17 +334,11 @@ export default function ExpatDashboard() {
       md += `### ${month}\n\n`;
       tasks.forEach(task => {
         const d = parseDate(task.date);
-        const dayStr = d ? d.getDate() : '';
-        md += `${statusEmoji[task.status]} **${task.title}**`;
-        if (dayStr) md += ` (${dayStr}${d ? getOrdinalSuffix(d.getDate()) : ''})`;
-        if (task.assignee) md += ` — _${task.assignee}_`;
-        md += `\n`;
+        const dateStr = d ? d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : 'No date';
+        const assigneeStr = task.assignee || 'Unassigned';
+        md += `${statusEmoji[task.status]} **${task.title}**\n`;
+        md += `   📅 ${dateStr} | 👤 ${assigneeStr}\n`;
         if (task.notes) md += `   > ${task.notes.replace(/\n/g, '\n   > ')}\n`;
-        if (task.budgetEstimated > 0 || task.budgetActual > 0) {
-          md += `   💰 Est: €${task.budgetEstimated} | Actual: €${task.budgetActual}`;
-          if (task.budgetDeferred) md += ` | Optional: €${task.budgetDeferred}`;
-          md += `\n`;
-        }
         md += `\n`;
       });
     });
@@ -352,9 +346,9 @@ export default function ExpatDashboard() {
     if (undated.length > 0) {
       md += `### Unscheduled\n\n`;
       undated.forEach(task => {
-        md += `${statusEmoji[task.status]} **${task.title}**`;
-        if (task.assignee) md += ` — _${task.assignee}_`;
-        md += `\n`;
+        const assigneeStr = task.assignee || 'Unassigned';
+        md += `${statusEmoji[task.status]} **${task.title}**\n`;
+        md += `   📅 No date | 👤 ${assigneeStr}\n`;
         if (task.notes) md += `   > ${task.notes.replace(/\n/g, '\n   > ')}\n`;
         md += `\n`;
       });
