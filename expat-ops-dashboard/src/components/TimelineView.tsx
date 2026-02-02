@@ -92,9 +92,11 @@ export const TimelineView = ({
     const noDates = steps.filter(s => !s.date);
     
     withDates.sort((a, b) => {
-      const aDate = a.date ? new Date(a.date).getTime() : Infinity;
-      const bDate = b.date ? new Date(b.date).getTime() : Infinity;
-      return aDate - bDate;
+      const aDate = parseDate(a.date);
+      const bDate = parseDate(b.date);
+      const aTime = aDate ? aDate.getTime() : Infinity;
+      const bTime = bDate ? bDate.getTime() : Infinity;
+      return aTime - bTime;
     });
     
     return [...withDates, ...noDates];
