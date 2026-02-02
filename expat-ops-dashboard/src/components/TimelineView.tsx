@@ -783,6 +783,19 @@ const TimelineCard = ({
   const [isExpanded, setIsExpanded] = useState(false);
   const [showAssigneeDropdown, setShowAssigneeDropdown] = useState(false);
   
+  // Local state to prevent cursor jumping and premature dispatch
+  const [localNotes, setLocalNotes] = useState(step.notes);
+  const [localDate, setLocalDate] = useState(formatDateForInput(step.date));
+  
+  // Sync local state when step prop changes (from external updates)
+  useEffect(() => {
+    setLocalNotes(step.notes);
+  }, [step.notes]);
+  
+  useEffect(() => {
+    setLocalDate(formatDateForInput(step.date));
+  }, [step.date]);
+  
   // Calculate days relative to relocation
   const getDaysToRelocation = () => {
     const stepDate = parseDate(step.date);
@@ -950,8 +963,13 @@ const TimelineCard = ({
             >
               {/* Notes */}
               <textarea
-                value={step.notes}
-                onChange={(e) => onUpdateStep(step.id, 'notes', e.target.value)}
+                value={localNotes}
+                onChange={(e) => setLocalNotes(e.target.value)}
+                onBlur={() => {
+                  if (localNotes !== step.notes) {
+                    onUpdateStep(step.id, 'notes', localNotes);
+                  }
+                }}
                 placeholder="Add notes, details, links..."
                 rows={4}
                 className="w-full text-sm text-slate-700 bg-slate-50 hover:bg-slate-100 focus:bg-white rounded-lg px-3 py-2 outline-none border border-slate-200 focus:border-blue-300 transition-all resize-none mb-3"
@@ -1013,10 +1031,13 @@ const TimelineCard = ({
             <span className="text-[10px] font-bold text-slate-400 uppercase">📅</span>
             <input
               type="date"
-              value={formatDateForInput(step.date)}
-              onChange={(e) => {
-                const date = e.target.value ? new Date(e.target.value + 'T00:00:00Z') : null;
-                onUpdateStep(step.id, 'date', date);
+              value={localDate}
+              onChange={(e) => setLocalDate(e.target.value)}
+              onBlur={() => {
+                if (localDate !== formatDateForInput(step.date)) {
+                  const date = localDate ? new Date(localDate + 'T00:00:00Z') : null;
+                  onUpdateStep(step.id, 'date', date);
+                }
               }}
               className="text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
             />
