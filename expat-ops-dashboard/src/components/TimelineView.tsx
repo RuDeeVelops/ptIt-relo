@@ -39,11 +39,12 @@ interface TimelineViewProps {
 interface MonthMarkerProps {
   date: Date;
   isRelocation: boolean;
+  isActive: boolean;
   taskCount: number;
   onClick: () => void;
 }
 
-const MonthMarker = ({ date, isRelocation, taskCount, onClick }: MonthMarkerProps) => {
+const MonthMarker = ({ date, isRelocation, isActive, taskCount, onClick }: MonthMarkerProps) => {
   const hasTask = taskCount > 0;
   
   return (
@@ -52,22 +53,26 @@ const MonthMarker = ({ date, isRelocation, taskCount, onClick }: MonthMarkerProp
       className={`flex flex-col items-center p-1.5 sm:p-2 rounded-lg transition-all min-w-0 ${
         isRelocation 
           ? 'bg-red-50 hover:bg-red-100 ring-2 ring-red-200' 
-          : hasTask 
-            ? 'bg-blue-50 hover:bg-blue-100 cursor-pointer' 
-            : 'opacity-50 hover:opacity-70'
+          : isActive
+            ? 'bg-indigo-100 ring-2 ring-indigo-300 shadow-md scale-105'
+            : hasTask 
+              ? 'bg-blue-50 hover:bg-blue-100 cursor-pointer' 
+              : 'opacity-50 hover:opacity-70'
       }`}
     >
       <div className={`text-xs sm:text-base md:text-xl font-black tracking-tighter leading-none ${
         isRelocation 
           ? 'text-red-500' 
-          : hasTask 
-            ? 'text-blue-600' 
-            : 'text-slate-300'
+          : isActive
+            ? 'text-indigo-600'
+            : hasTask 
+              ? 'text-blue-600' 
+              : 'text-slate-300'
       }`}>
         {date.toLocaleString('en-US', { month: 'short' }).toUpperCase()}
       </div>
       <div className={`text-[8px] sm:text-[10px] font-bold ${
-        isRelocation ? 'text-red-500' : hasTask ? 'text-blue-500' : 'text-slate-400'
+        isRelocation ? 'text-red-500' : isActive ? 'text-indigo-500' : hasTask ? 'text-blue-500' : 'text-slate-400'
       }`}>
         {date.getFullYear()}
       </div>
@@ -349,8 +354,17 @@ export const TimelineView = ({
     };
 
     taskZones.addEventListener('scroll', handleScroll);
+    // Initialize on mount
+    setTimeout(handleScroll, 100);
     return () => taskZones.removeEventListener('scroll', handleScroll);
   }, [showMonthsTimeline, currentVisibleMonth, scrollTimelineToMonth]);
+
+  // Initialize timeline position when it opens
+  useEffect(() => {
+    if (showMonthsTimeline && currentVisibleMonth) {
+      scrollTimelineToMonth(currentVisibleMonth.year, currentVisibleMonth.month);
+    }
+  }, [showMonthsTimeline]);
 
   // Date config helpers
   const formatDate = (date: Date | null) => {
@@ -512,12 +526,16 @@ export const TimelineView = ({
                         monthDate.getMonth() === relocationDate.getMonth() &&
                         monthDate.getFullYear() === relocationDate.getFullYear();
                       const taskCount = getTaskCountForMonth(monthDate.getFullYear(), monthDate.getMonth());
+                      const isActive = currentVisibleMonth !== null &&
+                        monthDate.getMonth() === currentVisibleMonth.month &&
+                        monthDate.getFullYear() === currentVisibleMonth.year;
 
                       return (
                         <div key={i} className="flex-shrink-0 text-center">
                           <MonthMarker 
                             date={monthDate} 
                             isRelocation={!!isRelocation}
+                            isActive={isActive && !isRelocation}
                             taskCount={taskCount}
                             onClick={() => scrollToMonth(monthDate.getFullYear(), monthDate.getMonth())}
                           />
