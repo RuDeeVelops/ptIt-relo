@@ -1,21 +1,19 @@
-import { useState, useRef, useMemo } from 'react';
-import { motion } from 'framer-motion';
+import { useState, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import type { PanInfo } from 'framer-motion';
 import { Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Step } from '../firestoreService';
 import type { RelocationConfig } from './RelocationConfig';
 
-// Helper to safely parse dates from Firestore (handles Timestamp, Date, string, etc.)
+// Helper to safely parse dates from Firestore
 const parseDate = (date: any): Date | null => {
   if (!date) return null;
-  // Firestore Timestamp
   if (date?.toDate && typeof date.toDate === 'function') {
     return date.toDate();
   }
-  // Already a Date
   if (date instanceof Date && !isNaN(date.getTime())) {
     return date;
   }
-  // String or number
   const parsed = new Date(date);
   return isNaN(parsed.getTime()) ? null : parsed;
 };
@@ -41,11 +39,9 @@ export const CarouselView = ({
   onUpdateStep,
   onDeleteStep,
   onToggleStatus,
-  onSort,
 }: CarouselViewProps) => {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const dragItem = useRef<number | null>(null);
-  const dragOverItem = useRef<number | null>(null);
+  const [[page, direction], setPage] = useState([0, 0]);
 
   const sortedSteps = useMemo(() => {
     const withDates = steps.filter(s => s.date);
@@ -60,35 +56,33 @@ export const CarouselView = ({
     return [...withDates, ...noDates];
   }, [steps]);
 
-  const handleSort = () => {
-    if (dragItem.current === null || dragOverItem.current === null) return;
-    
-    const draggedItem = sortedSteps[dragItem.current];
-    const newSteps = sortedSteps.filter((_, i) => i !== dragItem.current);
-    newSteps.splice(dragOverItem.current, 0, draggedItem);
-    
-    dragItem.current = null;
-    dragOverItem.current = null;
-    onSort(newSteps);
+  const paginate = (newDirection: number) => {
+    const newIndex = (currentIndex + newDirection + sortedSteps.length) % sortedSteps.length;
+    setCurrentIndex(newIndex);
+    setPage([page + newDirection, newDirection]);
   };
 
-  const prev = () => setCurrentIndex((prev) => (prev - 1 + sortedSteps.length) % sortedSteps.length);
-  const next = () => setCurrentIndex((prev) => (prev + 1) % sortedSteps.length);
+  const handleDragEnd = (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+    const swipeThreshold = 50;
+    if (info.offset.x < -swipeThreshold) {
+      paginate(1);
+    } else if (info.offset.x > swipeThreshold) {
+      paginate(-1);
+    }
+  };
 
-  const getPrevIndex = () => (currentIndex - 1 + sortedSteps.length) % sortedSteps.length;
-  const getNextIndex = () => (currentIndex + 1) % sortedSteps.length;
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowLeft') paginate(-1);
+    if (e.key === 'ArrowRight') paginate(1);
+  };
 
   const isBeforeRelocation = (step: Step): boolean | null => {
     const relocationDate = parseDate(config.relocationDate);
     const stepDate = parseDate(step.date);
-    
-    if (!relocationDate) return null;
-    if (!stepDate) return null;
-    
+    if (!relocationDate || !stepDate) return null;
     return stepDate < relocationDate;
   };
 
-  // Calculate days to relocation for a step
   const getDaysToRelocation = (step: Step): number | null => {
     const relocationDate = parseDate(config.relocationDate);
     const stepDate = parseDate(step.date);
@@ -99,138 +93,158 @@ export const CarouselView = ({
 
   if (sortedSteps.length === 0) {
     return (
-      <div className="h-screen flex items-center justify-center">
+      <div className="min-h-[calc(100vh-200px)] flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
         <div className="text-center">
-          <p className="text-slate-500 text-lg mb-4">No steps yet</p>
-          <p className="text-slate-400 text-sm">Add a step to get started</p>
+          <p className="text-slate-400 text-lg mb-4">No tasks yet</p>
+          <p className="text-slate-500 text-sm">Add a task to get started</p>
         </div>
       </div>
     );
   }
 
+  const currentStep = sortedSteps[currentIndex];
+  const stepDate = parseDate(currentStep?.date);
+  const isBefore = isBeforeRelocation(currentStep);
+  const daysToMove = getDaysToRelocation(currentStep);
+
+  const variants = {
+    enter: (direction: number) => ({
+      x: direction > 0 ? 300 : -300,
+      opacity: 0,
+      scale: 0.9,
+    }),
+    center: {
+      x: 0,
+      opacity: 1,
+      scale: 1,
+    },
+    exit: (direction: number) => ({
+      x: direction < 0 ? 300 : -300,
+      opacity: 0,
+      scale: 0.9,
+    }),
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col items-center justify-center px-4 py-12">
-      {/* TOP INFO */}
-      <div className="mb-8 text-center">
-        <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">
-          Journey Wheel
+    <div 
+      className="min-h-[calc(100vh-200px)] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col px-4 py-6 sm:py-10"
+      onKeyDown={handleKeyDown}
+      tabIndex={0}
+    >
+      {/* CHUNKY MONTH/YEAR HEADER */}
+      <div className="text-center mb-6 sm:mb-8">
+        <div className="text-6xl sm:text-8xl font-black text-white/90 tracking-tighter leading-none">
+          {stepDate ? stepDate.toLocaleString('en-US', { month: 'short' }).toUpperCase() : '---'}
         </div>
-        <div className="flex gap-2 justify-center items-center mb-6">
-          <div className="text-xs font-bold text-slate-400">
-            {currentIndex + 1} / {sortedSteps.length}
+        <div className="text-2xl sm:text-3xl font-bold text-white/50 mt-1">
+          {stepDate ? stepDate.getFullYear() : '----'}
+        </div>
+        {daysToMove !== null && (
+          <div className={`inline-block mt-3 text-sm font-bold px-4 py-1.5 rounded-full ${
+            daysToMove === 0 
+              ? 'bg-red-500/30 text-red-200' 
+              : daysToMove < 0 
+                ? 'bg-blue-500/30 text-blue-200'
+                : 'bg-emerald-500/30 text-emerald-200'
+          }`}>
+            {daysToMove === 0 
+              ? '🚀 Move day!' 
+              : daysToMove < 0 
+                ? `${Math.abs(daysToMove)} days before move` 
+                : `${daysToMove} days after move`}
           </div>
-        </div>
+        )}
       </div>
 
-      {/* CAROUSEL CONTAINER */}
-      <div className="relative w-full max-w-2xl h-96 perspective">
-        <div className="absolute inset-0 flex items-center justify-center">
-          {/* PREV CARD - LEFT */}
+      {/* CARD CAROUSEL */}
+      <div className="flex-1 flex items-center justify-center relative overflow-hidden min-h-[400px]">
+        <AnimatePresence initial={false} custom={direction} mode="popLayout">
           <motion.div
-            key={`prev-${getPrevIndex()}`}
-            layoutId={`card-${getPrevIndex()}`}
-            className="absolute left-0 w-64 pointer-events-none"
-            animate={{
-              opacity: 0.4,
-              scale: 0.8,
-              x: -120,
-              zIndex: 1,
-            }}
+            key={currentIndex}
+            custom={direction}
+            variants={variants}
+            initial="enter"
+            animate="center"
+            exit="exit"
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            drag="x"
+            dragConstraints={{ left: 0, right: 0 }}
+            dragElastic={0.7}
+            onDragEnd={handleDragEnd}
+            className="w-full max-w-md mx-auto cursor-grab active:cursor-grabbing touch-pan-y"
           >
             <CarouselCard
-              step={sortedSteps[getPrevIndex()]}
-              isFocused={false}
-              isBeforeRelocation={isBeforeRelocation(sortedSteps[getPrevIndex()]) ?? true}
-              daysToRelocation={getDaysToRelocation(sortedSteps[getPrevIndex()])}
-            />
-          </motion.div>
-
-          {/* CENTER CARD - FOCUSED */}
-          <motion.div
-            key={`current-${currentIndex}`}
-            layoutId={`card-${currentIndex}`}
-            className="absolute w-96"
-            animate={{
-              opacity: 1,
-              scale: 1,
-              x: 0,
-              zIndex: 10,
-            }}
-            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            draggable
-            onDragStart={() => (dragItem.current = currentIndex)}
-            onDragEnter={() => (dragOverItem.current = currentIndex)}
-            onDragEnd={handleSort}
-            onDragOver={(e) => e.preventDefault()}
-          >
-            <CarouselCard
-              step={sortedSteps[currentIndex]}
-              isFocused={true}
-              isBeforeRelocation={isBeforeRelocation(sortedSteps[currentIndex]) ?? true}
-              daysToRelocation={getDaysToRelocation(sortedSteps[currentIndex])}
+              step={currentStep}
+              isBefore={isBefore}
               onUpdateStep={onUpdateStep}
               onToggleStatus={onToggleStatus}
               onDeleteStep={onDeleteStep}
             />
           </motion.div>
+        </AnimatePresence>
 
-          {/* NEXT CARD - RIGHT */}
-          <motion.div
-            key={`next-${getNextIndex()}`}
-            layoutId={`card-${getNextIndex()}`}
-            className="absolute right-0 w-64 pointer-events-none"
-            animate={{
-              opacity: 0.4,
-              scale: 0.8,
-              x: 120,
-              zIndex: 1,
-            }}
-            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+        {/* Side navigation arrows - desktop */}
+        <button
+          onClick={() => paginate(-1)}
+          className="hidden sm:flex absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors z-20"
+        >
+          <ChevronLeft size={28} />
+        </button>
+        <button
+          onClick={() => paginate(1)}
+          className="hidden sm:flex absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors z-20"
+        >
+          <ChevronRight size={28} />
+        </button>
+      </div>
+
+      {/* BOTTOM NAVIGATION */}
+      <div className="mt-6 sm:mt-8">
+        {/* Mobile arrows + dots */}
+        <div className="flex items-center justify-center gap-4">
+          <button
+            onClick={() => paginate(-1)}
+            className="sm:hidden p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
           >
-            <CarouselCard
-              step={sortedSteps[getNextIndex()]}
-              isFocused={false}
-              isBeforeRelocation={isBeforeRelocation(sortedSteps[getNextIndex()]) ?? true}
-              daysToRelocation={getDaysToRelocation(sortedSteps[getNextIndex()])}
-            />
-          </motion.div>
-        </div>
-      </div>
+            <ChevronLeft size={20} />
+          </button>
 
-      {/* NAVIGATION BUTTONS */}
-      <div className="flex gap-4 mt-12 items-center">
-        <button
-          onClick={prev}
-          className="p-3 rounded-full bg-slate-700/50 hover:bg-slate-600 text-white transition-colors"
-        >
-          <ChevronLeft size={24} />
-        </button>
+          {/* Dot indicators */}
+          <div className="flex gap-2 items-center">
+            {sortedSteps.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => {
+                  const diff = i - currentIndex;
+                  setCurrentIndex(i);
+                  setPage([page + diff, diff > 0 ? 1 : -1]);
+                }}
+                className={`rounded-full transition-all ${
+                  i === currentIndex 
+                    ? 'bg-white w-6 h-2' 
+                    : 'bg-white/30 w-2 h-2 hover:bg-white/50'
+                }`}
+              />
+            ))}
+          </div>
 
-        <div className="flex gap-2">
-          {sortedSteps.map((_, i) => (
-            <motion.button
-              key={i}
-              onClick={() => setCurrentIndex(i)}
-              className={`h-2 rounded-full transition-all ${
-                i === currentIndex ? 'bg-blue-500 w-8' : 'bg-slate-600 w-2 hover:bg-slate-500'
-              }`}
-              animate={{ width: i === currentIndex ? 32 : 8 }}
-            />
-          ))}
+          <button
+            onClick={() => paginate(1)}
+            className="sm:hidden p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+          >
+            <ChevronRight size={20} />
+          </button>
         </div>
 
-        <button
-          onClick={next}
-          className="p-3 rounded-full bg-slate-700/50 hover:bg-slate-600 text-white transition-colors"
-        >
-          <ChevronRight size={24} />
-        </button>
-      </div>
+        {/* Counter */}
+        <div className="text-center mt-4 text-sm text-white/40">
+          {currentIndex + 1} of {sortedSteps.length}
+        </div>
 
-      {/* BOTTOM INFO */}
-      <div className="mt-12 text-center text-xs text-slate-400">
-        <p>Use arrow keys or buttons to navigate • Drag to reorder</p>
+        {/* Swipe hint - mobile only */}
+        <div className="sm:hidden text-center mt-2 text-xs text-white/30">
+          Swipe to navigate
+        </div>
       </div>
     </div>
   );
@@ -238,185 +252,123 @@ export const CarouselView = ({
 
 const CarouselCard = ({
   step,
-  isFocused,
-  isBeforeRelocation,
-  daysToRelocation,
+  isBefore,
   onUpdateStep,
   onToggleStatus,
   onDeleteStep,
 }: {
   step: Step;
-  isFocused: boolean;
-  isBeforeRelocation: boolean;
-  daysToRelocation: number | null;
-  onUpdateStep?: (id: string, field: keyof Step, value: any) => void;
-  onToggleStatus?: (id: string, status: Step['status']) => void;
-  onDeleteStep?: (id: string) => void;
+  isBefore: boolean | null;
+  onUpdateStep: (id: string, field: keyof Step, value: any) => void;
+  onToggleStatus: (id: string, status: Step['status']) => void;
+  onDeleteStep: (id: string) => void;
 }) => {
-  const bgColor = isBeforeRelocation ? 'from-blue-600 to-blue-700' : 'from-emerald-600 to-emerald-700';
+  const bgColor = isBefore === null 
+    ? 'from-slate-600 to-slate-700' 
+    : isBefore 
+      ? 'from-blue-600 to-blue-700' 
+      : 'from-emerald-600 to-emerald-700';
+
   const statusStyles = {
     todo: 'bg-white/20 text-white border-white/30',
-    progress: 'bg-yellow-400/20 text-yellow-100 border-yellow-400/30',
-    done: 'bg-emerald-400/20 text-emerald-100 border-emerald-400/30',
+    progress: 'bg-yellow-400/30 text-yellow-100 border-yellow-400/50',
+    done: 'bg-emerald-400/30 text-emerald-100 border-emerald-400/50',
   };
 
   const getStatusLabel = (status: Step['status']) => {
-    const labels = { todo: 'Todo', progress: 'In Progress', done: 'Done' };
+    const labels = { todo: '📋 Todo', progress: '🔄 Working', done: '✅ Done' };
     return labels[status];
   };
-  
-  const getDaysLabel = () => {
-    if (daysToRelocation === null) return null;
-    if (daysToRelocation === 0) return '🚀 Move day!';
-    if (daysToRelocation < 0) return `${Math.abs(daysToRelocation)} days before move`;
-    return `${daysToRelocation} days after move`;
+
+  const handleDelete = () => {
+    if (window.confirm(`Delete "${step.title || 'this task'}"? This cannot be undone.`)) {
+      onDeleteStep(step.id);
+    }
   };
 
   return (
-    <motion.div
-      className={`bg-gradient-to-br ${bgColor} rounded-2xl p-8 text-white shadow-2xl border border-white/10 backdrop-blur-sm ${
-        isFocused ? 'cursor-grab active:cursor-grabbing' : ''
-      }`}
-      initial={{ rotateY: 45 }}
-      animate={{ rotateY: 0 }}
-      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-    >
-      {/* DATE BADGE */}
-      <div className="mb-6 pb-6 border-b border-white/20">
-        {isFocused && onUpdateStep ? (
-          <div className="flex flex-col gap-2">
-            <label className="text-xs font-bold text-white/60 uppercase">Date</label>
-            <input
-              type="date"
-              value={formatDateForInput(step.date)}
-              onChange={(e) => {
-                const date = e.target.value ? new Date(e.target.value + 'T00:00:00Z') : null;
-                onUpdateStep(step.id, 'date', date);
-              }}
-              onClick={(e) => e.stopPropagation()}
-              className="text-sm font-bold text-white bg-white/20 border border-white/30 rounded px-3 py-2 focus:bg-white/30 outline-none"
-            />
-            {getDaysLabel() && (
-              <div className="text-xs font-bold text-white/80 bg-white/10 rounded-full px-3 py-1 text-center">
-                {getDaysLabel()}
-              </div>
-            )}
-          </div>
-        ) : (
-          <>
-            <div className="text-5xl font-black text-white/90 mb-2">
-              {parseDate(step.date)?.getDate() ?? '?'}
-            </div>
-            <div className="text-sm font-bold text-white/70 uppercase tracking-wide">
-              {parseDate(step.date)?.toLocaleString('en-US', { month: 'short', year: 'numeric' }) ?? 'No date'}
-            </div>
-            {getDaysLabel() && (
-              <div className="text-xs font-bold text-white/60 mt-2">
-                {getDaysLabel()}
-              </div>
-            )}
-          </>
-        )}
+    <div className={`bg-gradient-to-br ${bgColor} rounded-2xl p-6 text-white shadow-2xl border border-white/10`}>
+      {/* Date picker */}
+      <div className="mb-4">
+        <label className="text-xs font-bold text-white/50 uppercase block mb-1">Date</label>
+        <input
+          type="date"
+          value={formatDateForInput(step.date)}
+          onChange={(e) => {
+            const date = e.target.value ? new Date(e.target.value + 'T00:00:00Z') : null;
+            onUpdateStep(step.id, 'date', date);
+          }}
+          className="w-full text-sm font-semibold text-white bg-white/10 border border-white/20 rounded-lg px-3 py-2 focus:bg-white/20 outline-none"
+        />
       </div>
 
-      {/* TITLE */}
-      {isFocused && onUpdateStep ? (
-        <input
-          value={step.title}
-          onChange={(e) => onUpdateStep(step.id, 'title', e.target.value)}
-          onClick={(e) => e.stopPropagation()}
-          className="text-2xl font-black text-white bg-white/10 rounded px-3 py-2 mb-4 w-full focus:bg-white/20 outline-none border border-white/10"
-          placeholder="Title..."
-        />
-      ) : (
-        <h3 className="text-2xl font-black text-white mb-4 line-clamp-2">{step.title}</h3>
-      )}
+      {/* Title */}
+      <input
+        value={step.title}
+        onChange={(e) => onUpdateStep(step.id, 'title', e.target.value)}
+        placeholder="Task title..."
+        className="w-full text-xl font-bold text-white bg-transparent hover:bg-white/5 focus:bg-white/10 rounded-lg px-2 py-2 mb-3 outline-none border border-transparent focus:border-white/20 transition-all"
+      />
 
-      {/* NOTES */}
-      {isFocused && onUpdateStep ? (
-        <textarea
-          value={step.notes}
-          onChange={(e) => onUpdateStep(step.id, 'notes', e.target.value)}
-          onClick={(e) => e.stopPropagation()}
-          className="w-full text-sm text-white/80 bg-white/10 rounded px-3 py-2 mb-6 focus:bg-white/20 outline-none border border-white/10 resize-none"
-          placeholder="Notes..."
-          rows={3}
-        />
-      ) : (
-        step.notes && (
-          <p className="text-sm text-white/80 mb-6 line-clamp-3">{step.notes}</p>
-        )
-      )}
+      {/* Notes */}
+      <textarea
+        value={step.notes}
+        onChange={(e) => onUpdateStep(step.id, 'notes', e.target.value)}
+        placeholder="Add notes..."
+        rows={3}
+        className="w-full text-sm text-white/80 bg-white/5 hover:bg-white/10 focus:bg-white/15 rounded-lg px-3 py-2 mb-4 outline-none border border-white/10 focus:border-white/30 transition-all resize-none"
+      />
 
-      {/* BUDGET */}
-      <div className="mb-6 pb-6 border-b border-white/20 space-y-3">
-        <div className="flex justify-between items-center">
-          <span className="text-xs font-bold text-white/60 uppercase">Est. Budget</span>
-          {isFocused && onUpdateStep ? (
+      {/* Budget row */}
+      <div className="grid grid-cols-2 gap-3 mb-4 pb-4 border-b border-white/20">
+        <div>
+          <label className="text-xs font-bold text-white/50 uppercase block mb-1">Est. Budget</label>
+          <div className="flex items-center bg-white/10 rounded-lg px-3 py-2 border border-white/10">
+            <span className="text-white/50 mr-1">€</span>
             <input
               type="number"
               value={step.budgetEstimated}
               onChange={(e) => onUpdateStep(step.id, 'budgetEstimated', parseFloat(e.target.value) || 0)}
-              onClick={(e) => e.stopPropagation()}
-              className="text-lg font-bold text-white bg-white/10 rounded px-2 py-1 w-24 focus:bg-white/20 outline-none border border-white/10 text-right"
+              className="w-full bg-transparent text-white font-bold outline-none text-right"
             />
-          ) : (
-            <span className="text-lg font-bold text-white">€{step.budgetEstimated}</span>
-          )}
+          </div>
         </div>
-        <div className="flex justify-between items-center">
-          <span className="text-xs font-bold text-white/60 uppercase">Actual</span>
-          {isFocused && onUpdateStep ? (
+        <div>
+          <label className="text-xs font-bold text-white/50 uppercase block mb-1">Actual</label>
+          <div className={`flex items-center rounded-lg px-3 py-2 border ${
+            step.budgetActual > step.budgetEstimated
+              ? 'bg-red-500/30 border-red-400/50'
+              : 'bg-white/10 border-white/10'
+          }`}>
+            <span className="text-white/50 mr-1">€</span>
             <input
               type="number"
               value={step.budgetActual}
               onChange={(e) => onUpdateStep(step.id, 'budgetActual', parseFloat(e.target.value) || 0)}
-              onClick={(e) => e.stopPropagation()}
-              className={`text-lg font-bold rounded px-2 py-1 w-24 focus:bg-white/20 outline-none border text-right ${
-                step.budgetActual > step.budgetEstimated
-                  ? 'bg-red-500/20 text-red-100 border-red-400/30'
-                  : 'bg-white/10 text-white border-white/10'
-              }`}
-            />
-          ) : (
-            <span
-              className={`text-lg font-bold ${
+              className={`w-full bg-transparent font-bold outline-none text-right ${
                 step.budgetActual > step.budgetEstimated ? 'text-red-200' : 'text-white'
               }`}
-            >
-              €{step.budgetActual}
-            </span>
-          )}
+            />
+          </div>
         </div>
       </div>
 
-      {/* STATUS & ACTIONS */}
-      {isFocused && (onToggleStatus || onDeleteStep) ? (
-        <div className="flex gap-2 items-center">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleStatus?.(step.id, step.status);
-            }}
-            className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors ${statusStyles[step.status]}`}
-          >
-            {getStatusLabel(step.status)}
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onDeleteStep?.(step.id);
-            }}
-            className="text-white/50 hover:text-red-300 ml-auto transition-colors"
-          >
-            <Trash2 size={18} />
-          </button>
-        </div>
-      ) : (
-        <div className={`text-xs font-bold px-3 py-1.5 rounded-lg border inline-block ${statusStyles[step.status]}`}>
+      {/* Status & Delete */}
+      <div className="flex items-center justify-between">
+        <button
+          onClick={() => onToggleStatus(step.id, step.status)}
+          className={`text-sm font-bold px-4 py-2 rounded-lg border transition-all ${statusStyles[step.status]}`}
+        >
           {getStatusLabel(step.status)}
-        </div>
-      )}
-    </motion.div>
+        </button>
+        <button
+          onClick={handleDelete}
+          className="p-2 rounded-lg text-red-300 hover:text-red-100 hover:bg-red-500/30 transition-all"
+          title="Delete task"
+        >
+          <Trash2 size={18} />
+        </button>
+      </div>
+    </div>
   );
 };

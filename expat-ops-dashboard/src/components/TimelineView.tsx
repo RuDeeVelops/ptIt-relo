@@ -34,19 +34,49 @@ interface TimelineViewProps {
   onToggleStatus: (id: string, status: Step['status']) => void;
 }
 
-const MonthMarker = ({ date, isRelocation }: { date: Date; isRelocation: boolean }) => {
+interface MonthMarkerProps {
+  date: Date;
+  isRelocation: boolean;
+  taskCount: number;
+  onClick: () => void;
+}
+
+const MonthMarker = ({ date, isRelocation, taskCount, onClick }: MonthMarkerProps) => {
+  const hasTask = taskCount > 0;
+  
   return (
-    <div className={`flex flex-col items-center ${ isRelocation ? 'opacity-100' : 'opacity-60'}`}>
-      <div className={`text-3xl font-black tracking-tighter ${ isRelocation ? 'text-red-500' : 'text-slate-300' }`}>
-        {date.toLocaleString('en-US', { month: 'numeric' })}
+    <button
+      onClick={onClick}
+      className={`flex flex-col items-center p-2 rounded-lg transition-all ${
+        isRelocation 
+          ? 'bg-red-50 hover:bg-red-100 ring-2 ring-red-200' 
+          : hasTask 
+            ? 'bg-blue-50 hover:bg-blue-100 cursor-pointer' 
+            : 'opacity-50 hover:opacity-70'
+      }`}
+    >
+      <div className={`text-2xl sm:text-3xl font-black tracking-tighter ${
+        isRelocation 
+          ? 'text-red-500' 
+          : hasTask 
+            ? 'text-blue-600' 
+            : 'text-slate-300'
+      }`}>
+        {date.toLocaleString('en-US', { month: 'short' }).toUpperCase()}
       </div>
-      <div className={`text-xs font-bold ${ isRelocation ? 'text-red-500' : 'text-slate-400' }`}>
+      <div className={`text-[10px] font-bold ${
+        isRelocation ? 'text-red-500' : hasTask ? 'text-blue-500' : 'text-slate-400'
+      }`}>
         {date.getFullYear()}
       </div>
-      {isRelocation && (
-        <div className="text-xs font-bold text-red-500 mt-1">🚀 MOVE</div>
-      )}
-    </div>
+      {isRelocation ? (
+        <div className="text-[10px] font-bold text-red-500 mt-1">🚀 MOVE</div>
+      ) : hasTask ? (
+        <div className="mt-1 px-2 py-0.5 bg-blue-500 text-white text-[10px] font-bold rounded-full">
+          {taskCount}
+        </div>
+      ) : null}
+    </button>
   );
 };
 
@@ -87,6 +117,35 @@ export const TimelineView = ({
   const afterSteps = sortedSteps.filter(s => isBeforeRelocation(s) === false);
   const undatedSteps = sortedSteps.filter(s => !s.date);
 
+  // Count tasks per month
+  const getTaskCountForMonth = (year: number, month: number): number => {
+    return sortedSteps.filter(s => {
+      const stepDate = parseDate(s.date);
+      if (!stepDate) return false;
+      return stepDate.getFullYear() === year && stepDate.getMonth() === month;
+    }).length;
+  };
+
+  // Scroll to first task of a given month
+  const scrollToMonth = (year: number, month: number) => {
+    const firstTask = sortedSteps.find(s => {
+      const stepDate = parseDate(s.date);
+      if (!stepDate) return false;
+      return stepDate.getFullYear() === year && stepDate.getMonth() === month;
+    });
+    if (firstTask) {
+      const element = document.getElementById(`task-${firstTask.id}`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Flash highlight
+        element.classList.add('ring-2', 'ring-blue-400', 'ring-offset-2');
+        setTimeout(() => {
+          element.classList.remove('ring-2', 'ring-blue-400', 'ring-offset-2');
+        }, 2000);
+      }
+    }
+  };
+
   return (
     <div className="space-y-8">
       {/* TIMELINE HEADER */}
@@ -99,7 +158,8 @@ export const TimelineView = ({
           {/* MONTHS DISPLAY */}
           {config.startDate && config.endDate && (
             <div className="mb-12 pb-8 border-b border-slate-100">
-              <div className="grid grid-cols-12 gap-2">
+              <p className="text-xs text-slate-400 mb-4 text-center">Click a month to jump to its tasks</p>
+              <div className="grid grid-cols-6 sm:grid-cols-12 gap-2">
                 {Array.from({ length: 13 }).map((_, i) => {
                   const monthDate = new Date(config.startDate!);
                   monthDate.setMonth(monthDate.getMonth() + i);
@@ -107,10 +167,16 @@ export const TimelineView = ({
                     config.relocationDate &&
                     monthDate.getMonth() === config.relocationDate.getMonth() &&
                     monthDate.getFullYear() === config.relocationDate.getFullYear();
+                  const taskCount = getTaskCountForMonth(monthDate.getFullYear(), monthDate.getMonth());
 
                   return (
                     <div key={i} className="text-center">
-                      <MonthMarker date={monthDate} isRelocation={!!isRelocation} />
+                      <MonthMarker 
+                        date={monthDate} 
+                        isRelocation={!!isRelocation}
+                        taskCount={taskCount}
+                        onClick={() => scrollToMonth(monthDate.getFullYear(), monthDate.getMonth())}
+                      />
                     </div>
                   );
                 })}
@@ -305,6 +371,7 @@ const TimelineCard = ({
 
   return (
     <motion.div
+      id={`task-${step.id}`}
       layout
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
