@@ -635,7 +635,7 @@ const TimelineCard = ({
               />
 
               {/* Budget Row */}
-              <div className="flex items-center gap-4 mb-3">
+              <div className="flex flex-wrap items-center gap-4 mb-3">
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-bold text-slate-400 uppercase">Est. Budget</span>
                   <div className="flex items-center bg-white rounded-lg px-2 py-1 border border-slate-200">
@@ -663,6 +663,18 @@ const TimelineCard = ({
                       className={`w-16 bg-transparent text-sm font-bold outline-none text-right ${
                         step.budgetActual > step.budgetEstimated ? 'text-red-600' : 'text-emerald-600'
                       }`}
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-amber-500 uppercase">Optional</span>
+                  <div className="flex items-center bg-amber-50 rounded-lg px-2 py-1 border border-amber-200">
+                    <span className="text-xs text-amber-400 mr-1">€</span>
+                    <input
+                      type="number"
+                      value={step.budgetDeferred || 0}
+                      onChange={(e) => onUpdateStep(step.id, 'budgetDeferred', parseFloat(e.target.value) || 0)}
+                      className="w-16 bg-transparent text-sm font-bold text-amber-600 outline-none text-right"
                     />
                   </div>
                 </div>
@@ -737,6 +749,18 @@ const TimelineCard = ({
                   className={`w-14 bg-transparent text-xs font-bold outline-none text-right ${
                     step.budgetActual > step.budgetEstimated ? 'text-red-600' : 'text-emerald-600'
                   }`}
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] font-bold text-amber-500">Opt:</span>
+              <div className="flex items-center bg-amber-50 rounded px-1.5 py-0.5 border border-amber-200">
+                <span className="text-[10px] text-amber-400">€</span>
+                <input
+                  type="number"
+                  value={step.budgetDeferred || 0}
+                  onChange={(e) => onUpdateStep(step.id, 'budgetDeferred', parseFloat(e.target.value) || 0)}
+                  className="w-14 bg-transparent text-xs font-bold text-amber-600 outline-none text-right"
                 />
               </div>
             </div>

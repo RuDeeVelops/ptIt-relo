@@ -191,6 +191,7 @@ export default function ExpatDashboard() {
   // KPI
   const totalEst = steps.reduce((sum, s) => sum + s.budgetEstimated, 0);
   const totalAct = steps.reduce((sum, s) => sum + s.budgetActual, 0);
+  const totalDeferred = steps.reduce((sum, s) => sum + (s.budgetDeferred || 0), 0);
   const progress = Math.round((steps.filter(s => s.status === 'done').length / steps.length) * 100) || 0;
 
   if (!isLoaded) return <div className="flex h-screen items-center justify-center text-slate-400">Loading...</div>;
@@ -226,6 +227,11 @@ export default function ExpatDashboard() {
               <span className={`text-sm font-bold ${totalAct > totalEst ? 'text-red-500' : 'text-blue-600'}`}>
                 € {totalAct.toLocaleString()}
               </span>
+            </div>
+            <div className="h-6 w-px bg-slate-300"></div>
+            <div className="flex flex-col items-end">
+              <span className="text-[10px] font-bold text-amber-500 uppercase">Optional</span>
+              <span className="text-sm font-bold text-amber-600">€ {totalDeferred.toLocaleString()}</span>
             </div>
             <div className="h-6 w-px bg-slate-300"></div>
             <div className="flex flex-col items-end">
