@@ -17,7 +17,7 @@ import {
   saveUserSettings,
   type Step
 } from './firestoreService';
-import { RelocationConfigPanel, type RelocationConfig } from './components/RelocationConfig';
+import { type RelocationConfig } from './components/RelocationConfig';
 import { TimelineView } from './components/TimelineView';
 
 // --- COMPONENTI UI ---
@@ -303,16 +303,12 @@ export default function ExpatDashboard() {
         </div>
       </header>
 
-      {/* RELOCATION CONFIG PANEL */}
-      <div className="flex-shrink-0">
-        <RelocationConfigPanel config={relocationConfig} onUpdate={handleRelocationConfigUpdate} />
-      </div>
-
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-hidden">
         <TimelineView
           steps={steps}
           config={relocationConfig}
           teamMembers={teamMembers}
+          onUpdateConfig={handleRelocationConfigUpdate}
           onUpdateStep={handleUpdateStep}
           onDeleteStep={handleDeleteStep}
           onToggleStatus={handleToggleStatus}
