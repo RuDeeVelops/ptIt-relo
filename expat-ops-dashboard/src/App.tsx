@@ -216,10 +216,10 @@ export default function ExpatDashboard() {
   if (!user) return <LoginScreen onLogin={handleLogin} />;
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-800 font-sans pb-20">
+    <div className="min-h-screen h-screen bg-slate-100 text-slate-800 font-sans flex flex-col overflow-hidden">
       
       {/* HEADER */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm px-4 py-3">
+      <header className="flex-shrink-0 bg-white border-b border-slate-200 z-20 shadow-sm px-4 py-3">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
           
           <div className="flex items-center gap-3">
@@ -292,9 +292,11 @@ export default function ExpatDashboard() {
       </header>
 
       {/* RELOCATION CONFIG PANEL */}
-      <RelocationConfigPanel config={relocationConfig} onUpdate={handleRelocationConfigUpdate} />
+      <div className="flex-shrink-0">
+        <RelocationConfigPanel config={relocationConfig} onUpdate={handleRelocationConfigUpdate} />
+      </div>
 
-      <main>
+      <main className="flex-1 overflow-auto">
         {viewMode === 'carousel' ? (
           <CarouselView
             steps={steps}

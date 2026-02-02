@@ -93,7 +93,7 @@ export const CarouselView = ({
 
   if (sortedSteps.length === 0) {
     return (
-      <div className="min-h-[calc(100vh-200px)] flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      <div className="h-full min-h-[500px] flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
         <div className="text-center">
           <p className="text-slate-400 text-lg mb-4">No tasks yet</p>
           <p className="text-slate-500 text-sm">Add a task to get started</p>
@@ -127,7 +127,7 @@ export const CarouselView = ({
 
   return (
     <div 
-      className="min-h-[calc(100vh-200px)] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col px-4 py-6 sm:py-10"
+      className="h-full min-h-[500px] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col px-4 py-4 sm:py-6"
       onKeyDown={handleKeyDown}
       tabIndex={0}
     >
@@ -157,7 +157,7 @@ export const CarouselView = ({
       </div>
 
       {/* CARD CAROUSEL */}
-      <div className="flex-1 flex items-center justify-center relative overflow-hidden min-h-[400px]">
+      <div className="flex-1 flex items-center justify-center relative overflow-hidden min-h-0">
         <AnimatePresence initial={false} custom={direction} mode="popLayout">
           <motion.div
             key={currentIndex}

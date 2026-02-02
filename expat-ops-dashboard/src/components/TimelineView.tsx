@@ -47,7 +47,7 @@ const MonthMarker = ({ date, isRelocation, taskCount, onClick }: MonthMarkerProp
   return (
     <button
       onClick={onClick}
-      className={`flex flex-col items-center p-2 rounded-lg transition-all ${
+      className={`flex flex-col items-center p-1.5 sm:p-2 rounded-lg transition-all min-w-0 ${
         isRelocation 
           ? 'bg-red-50 hover:bg-red-100 ring-2 ring-red-200' 
           : hasTask 
@@ -55,7 +55,7 @@ const MonthMarker = ({ date, isRelocation, taskCount, onClick }: MonthMarkerProp
             : 'opacity-50 hover:opacity-70'
       }`}
     >
-      <div className={`text-2xl sm:text-3xl font-black tracking-tighter ${
+      <div className={`text-xs sm:text-base md:text-xl font-black tracking-tighter leading-none ${
         isRelocation 
           ? 'text-red-500' 
           : hasTask 
@@ -64,15 +64,15 @@ const MonthMarker = ({ date, isRelocation, taskCount, onClick }: MonthMarkerProp
       }`}>
         {date.toLocaleString('en-US', { month: 'short' }).toUpperCase()}
       </div>
-      <div className={`text-[10px] font-bold ${
+      <div className={`text-[8px] sm:text-[10px] font-bold ${
         isRelocation ? 'text-red-500' : hasTask ? 'text-blue-500' : 'text-slate-400'
       }`}>
         {date.getFullYear()}
       </div>
       {isRelocation ? (
-        <div className="text-[10px] font-bold text-red-500 mt-1">🚀 MOVE</div>
+        <div className="text-[8px] sm:text-[10px] font-bold text-red-500 mt-0.5">🚀</div>
       ) : hasTask ? (
-        <div className="mt-1 px-2 py-0.5 bg-blue-500 text-white text-[10px] font-bold rounded-full">
+        <div className="mt-0.5 px-1.5 py-0.5 bg-blue-500 text-white text-[8px] sm:text-[10px] font-bold rounded-full leading-none">
           {taskCount}
         </div>
       ) : null}
@@ -157,29 +157,31 @@ export const TimelineView = ({
 
           {/* MONTHS DISPLAY */}
           {config.startDate && config.endDate && (
-            <div className="mb-12 pb-8 border-b border-slate-100">
-              <p className="text-xs text-slate-400 mb-4 text-center">Click a month to jump to its tasks</p>
-              <div className="grid grid-cols-6 sm:grid-cols-12 gap-2">
-                {Array.from({ length: 13 }).map((_, i) => {
-                  const monthDate = new Date(config.startDate!);
-                  monthDate.setMonth(monthDate.getMonth() + i);
-                  const isRelocation =
-                    config.relocationDate &&
-                    monthDate.getMonth() === config.relocationDate.getMonth() &&
-                    monthDate.getFullYear() === config.relocationDate.getFullYear();
-                  const taskCount = getTaskCountForMonth(monthDate.getFullYear(), monthDate.getMonth());
+            <div className="mb-8 pb-6 border-b border-slate-100">
+              <p className="text-[10px] text-slate-400 mb-3 text-center">Click a month to jump to its tasks</p>
+              <div className="overflow-x-auto pb-2 -mx-4 px-4">
+                <div className="flex gap-1 sm:gap-2 min-w-max sm:min-w-0 sm:grid sm:grid-cols-13" style={{ gridTemplateColumns: 'repeat(13, minmax(0, 1fr))' }}>
+                  {Array.from({ length: 13 }).map((_, i) => {
+                    const monthDate = new Date(config.startDate!);
+                    monthDate.setMonth(monthDate.getMonth() + i);
+                    const isRelocation =
+                      config.relocationDate &&
+                      monthDate.getMonth() === config.relocationDate.getMonth() &&
+                      monthDate.getFullYear() === config.relocationDate.getFullYear();
+                    const taskCount = getTaskCountForMonth(monthDate.getFullYear(), monthDate.getMonth());
 
-                  return (
-                    <div key={i} className="text-center">
-                      <MonthMarker 
-                        date={monthDate} 
-                        isRelocation={!!isRelocation}
-                        taskCount={taskCount}
-                        onClick={() => scrollToMonth(monthDate.getFullYear(), monthDate.getMonth())}
-                      />
-                    </div>
-                  );
-                })}
+                    return (
+                      <div key={i} className="flex-shrink-0 sm:flex-shrink text-center">
+                        <MonthMarker 
+                          date={monthDate} 
+                          isRelocation={!!isRelocation}
+                          taskCount={taskCount}
+                          onClick={() => scrollToMonth(monthDate.getFullYear(), monthDate.getMonth())}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           )}
