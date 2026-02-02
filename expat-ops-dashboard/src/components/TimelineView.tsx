@@ -207,8 +207,8 @@ export const TimelineView = ({
               </div>
             )}
 
-            {/* UNDATED TASKS - Always show if there are undated steps */}
-            {undatedSteps.length > 0 && (
+            {/* UNDATED TASKS - Show when relocation date is set and there are undated steps */}
+            {config.relocationDate && undatedSteps.length > 0 && (
               <div>
                 <div className="flex items-center gap-3 mb-4 pl-4">
                   <span className="text-lg">📋</span>
@@ -480,22 +480,22 @@ const TimelineCard = ({
               </div>
             </div>
           </div>
+
+          {/* Delete Button */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (window.confirm(`Delete "${step.title || 'this task'}"? This cannot be undone.`)) {
+                onDeleteStep(step.id);
+              }
+            }}
+            className="p-1.5 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition-all flex-shrink-0"
+            title="Delete task"
+          >
+            <Trash2 size={14} />
+          </button>
         </div>
       </div>
-
-      {/* Delete Button - Bottom Right, Always Visible */}
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          if (window.confirm(`Delete "${step.title || 'this task'}"? This cannot be undone.`)) {
-            onDeleteStep(step.id);
-          }
-        }}
-        className="absolute bottom-3 right-3 p-1.5 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition-all"
-        title="Delete task"
-      >
-        <Trash2 size={14} />
-      </button>
     </motion.div>
   );
 };
