@@ -5,7 +5,8 @@ import {
   Plane,
   LogOut,
   Users,
-  X
+  X,
+  Download
 } from 'lucide-react';
 import { signInWithGoogle, signOut, onAuthChange } from './authService';
 import { 
@@ -208,6 +209,177 @@ export default function ExpatDashboard() {
   const totalDeferred = steps.reduce((sum, s) => sum + (s.budgetDeferred || 0), 0);
   const progress = Math.round((steps.filter(s => s.status === 'done').length / steps.length) * 100) || 0;
 
+  // Export state
+  const [showExportMenu, setShowExportMenu] = useState(false);
+
+  // Export functions
+  const parseDate = (date: Date | string | null | undefined | undefined): Date | null => {
+    if (!date) return null;
+    if (date instanceof Date) return date;
+    return new Date(date);
+  };
+
+  const exportAsJSON = () => {
+    const exportData = {
+      project: 'EXPAT OPS 2026',
+      route: 'Alghero → Cascais',
+      exportedAt: new Date().toISOString(),
+      config: {
+        startDate: relocationConfig.startDate?.toISOString() ?? null,
+        relocationDate: relocationConfig.relocationDate?.toISOString() ?? null,
+        endDate: relocationConfig.endDate?.toISOString() ?? null,
+      },
+      teamMembers,
+      summary: {
+        totalTasks: steps.length,
+        completedTasks: steps.filter(s => s.status === 'done').length,
+        inProgressTasks: steps.filter(s => s.status === 'progress').length,
+        todoTasks: steps.filter(s => s.status === 'todo').length,
+        budgetEstimated: totalEst,
+        budgetActual: totalAct,
+        budgetOptional: totalDeferred,
+        progress: `${progress}%`,
+      },
+      tasks: steps.map(s => ({
+        id: s.id,
+        title: s.title,
+        notes: s.notes,
+        status: s.status,
+        date: s.date instanceof Date ? s.date.toISOString() : s.date,
+        assignee: s.assignee || null,
+        budgetEstimated: s.budgetEstimated,
+        budgetActual: s.budgetActual,
+        budgetOptional: s.budgetDeferred || 0,
+      })),
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `expat-ops-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setShowExportMenu(false);
+  };
+
+  const exportAsMarkdown = () => {
+    const formatDate = (date: Date | string | null) => {
+      const d = parseDate(date);
+      if (!d) return 'Not set';
+      return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    };
+
+    // Group tasks by month
+    const sortedSteps = [...steps].sort((a, b) => {
+      const dateA = parseDate(a.date);
+      const dateB = parseDate(b.date);
+      if (!dateA && !dateB) return 0;
+      if (!dateA) return 1;
+      if (!dateB) return -1;
+      return dateA.getTime() - dateB.getTime();
+    });
+
+    const groupedByMonth: Record<string, typeof steps> = {};
+    const undated: typeof steps = [];
+
+    sortedSteps.forEach(step => {
+      const d = parseDate(step.date);
+      if (!d) {
+        undated.push(step);
+      } else {
+        const label = d.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+        if (!groupedByMonth[label]) groupedByMonth[label] = [];
+        groupedByMonth[label].push(step);
+      }
+    });
+
+    const statusEmoji = { todo: '⬜', progress: '🔄', done: '✅' };
+
+    let md = `# EXPAT OPS 2026\n`;
+    md += `**Route:** Alghero → Cascais\n\n`;
+    md += `**Exported:** ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}\n\n`;
+    md += `---\n\n`;
+
+    md += `## Timeline\n`;
+    md += `- **Start Date:** ${formatDate(relocationConfig.startDate)}\n`;
+    md += `- **Relocation Date:** ${formatDate(relocationConfig.relocationDate)}\n`;
+    md += `- **End Date:** ${formatDate(relocationConfig.endDate)}\n\n`;
+
+    if (teamMembers.length > 0) {
+      md += `## Team\n`;
+      teamMembers.forEach(m => {
+        const count = steps.filter(s => s.assignee === m).length;
+        md += `- **${m}** (${count} tasks)\n`;
+      });
+      md += `\n`;
+    }
+
+    md += `## Summary\n`;
+    md += `| Metric | Value |\n`;
+    md += `|--------|-------|\n`;
+    md += `| Total Tasks | ${steps.length} |\n`;
+    md += `| Completed | ${steps.filter(s => s.status === 'done').length} |\n`;
+    md += `| In Progress | ${steps.filter(s => s.status === 'progress').length} |\n`;
+    md += `| Todo | ${steps.filter(s => s.status === 'todo').length} |\n`;
+    md += `| Budget (Est.) | €${totalEst.toLocaleString()} |\n`;
+    md += `| Budget (Actual) | €${totalAct.toLocaleString()} |\n`;
+    md += `| Budget (Optional) | €${totalDeferred.toLocaleString()} |\n`;
+    md += `| Progress | ${progress}% |\n\n`;
+
+    md += `---\n\n`;
+    md += `## Tasks by Month\n\n`;
+
+    Object.entries(groupedByMonth).forEach(([month, tasks]) => {
+      md += `### ${month}\n\n`;
+      tasks.forEach(task => {
+        const d = parseDate(task.date);
+        const dayStr = d ? d.getDate() : '';
+        md += `${statusEmoji[task.status]} **${task.title}**`;
+        if (dayStr) md += ` (${dayStr}${d ? getOrdinalSuffix(d.getDate()) : ''})`;
+        if (task.assignee) md += ` — _${task.assignee}_`;
+        md += `\n`;
+        if (task.notes) md += `   > ${task.notes.replace(/\n/g, '\n   > ')}\n`;
+        if (task.budgetEstimated > 0 || task.budgetActual > 0) {
+          md += `   💰 Est: €${task.budgetEstimated} | Actual: €${task.budgetActual}`;
+          if (task.budgetDeferred) md += ` | Optional: €${task.budgetDeferred}`;
+          md += `\n`;
+        }
+        md += `\n`;
+      });
+    });
+
+    if (undated.length > 0) {
+      md += `### Unscheduled\n\n`;
+      undated.forEach(task => {
+        md += `${statusEmoji[task.status]} **${task.title}**`;
+        if (task.assignee) md += ` — _${task.assignee}_`;
+        md += `\n`;
+        if (task.notes) md += `   > ${task.notes.replace(/\n/g, '\n   > ')}\n`;
+        md += `\n`;
+      });
+    }
+
+    const blob = new Blob([md], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `expat-ops-${new Date().toISOString().split('T')[0]}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setShowExportMenu(false);
+  };
+
+  const getOrdinalSuffix = (day: number) => {
+    if (day > 3 && day < 21) return 'th';
+    switch (day % 10) {
+      case 1: return 'st';
+      case 2: return 'nd';
+      case 3: return 'rd';
+      default: return 'th';
+    }
+  };
+
   if (!isLoaded) return <div className="flex h-screen items-center justify-center text-slate-400">Loading...</div>;
 
   if (!user) return <LoginScreen onLogin={handleLogin} />;
@@ -292,6 +464,41 @@ export default function ExpatDashboard() {
 
           <div className="flex gap-2 items-center">
             <div className="text-xs text-slate-500">{user?.email}</div>
+            
+            {/* Export Menu */}
+            <div className="relative">
+              <button 
+                onClick={() => setShowExportMenu(!showExportMenu)} 
+                className="bg-emerald-600 text-white p-2 rounded hover:bg-emerald-700 transition" 
+                title="Export"
+              >
+                <Download size={18} />
+              </button>
+              {showExportMenu && (
+                <>
+                  <div 
+                    className="fixed inset-0 z-10" 
+                    onClick={() => setShowExportMenu(false)}
+                  />
+                  <div className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-20 min-w-[140px]">
+                    <button
+                      onClick={exportAsJSON}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 flex items-center gap-2"
+                    >
+                      <span className="text-slate-400">{ }</span>
+                      <span>Export JSON</span>
+                    </button>
+                    <button
+                      onClick={exportAsMarkdown}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 flex items-center gap-2"
+                    >
+                      <span className="text-slate-400">#</span>
+                      <span>Export Markdown</span>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
             
             <button onClick={handleAddStep} className="bg-slate-900 text-white p-2 rounded hover:bg-slate-700 transition" title="Aggiungi">
               <Plus size={18} />
