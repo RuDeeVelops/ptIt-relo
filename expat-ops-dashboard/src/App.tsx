@@ -60,7 +60,9 @@ export default function ExpatDashboard() {
 
   // Load user settings (relocation config) from Firestore
   const loadUserSettings = useCallback(async (userId: string) => {
+    console.log('Loading user settings for:', userId);
     const settings = await getUserSettings(userId);
+    console.log('Loaded settings:', settings);
     if (settings) {
       setRelocationConfig({
         startDate: settings.relocationStartDate ? new Date(settings.relocationStartDate) : null,
@@ -74,11 +76,15 @@ export default function ExpatDashboard() {
   const handleRelocationConfigUpdate = useCallback((config: RelocationConfig) => {
     setRelocationConfig(config);
     if (user) {
-      saveUserSettings(user.uid, {
+      const settingsToSave = {
         relocationStartDate: config.startDate?.toISOString() ?? null,
         relocationDate: config.relocationDate?.toISOString() ?? null,
         relocationEndDate: config.endDate?.toISOString() ?? null,
-      }).catch(err => console.error('Error saving settings:', err));
+      };
+      console.log('Saving settings:', settingsToSave);
+      saveUserSettings(user.uid, settingsToSave)
+        .then(() => console.log('Settings saved successfully'))
+        .catch(err => console.error('Error saving settings:', err));
     }
   }, [user]);
 

@@ -85,7 +85,7 @@ export const TimelineView = ({
   // Get steps grouped by phase
   const beforeSteps = sortedSteps.filter(s => isBeforeRelocation(s) === true);
   const afterSteps = sortedSteps.filter(s => isBeforeRelocation(s) === false);
-  const undatedSteps = sortedSteps.filter(s => isBeforeRelocation(s) === null && s.date === null);
+  const undatedSteps = sortedSteps.filter(s => !s.date);
 
   return (
     <div className="space-y-8">
@@ -207,8 +207,8 @@ export const TimelineView = ({
               </div>
             )}
 
-            {/* UNDATED TASKS */}
-            {config.relocationDate && undatedSteps.length > 0 && (
+            {/* UNDATED TASKS - Always show if there are undated steps */}
+            {undatedSteps.length > 0 && (
               <div>
                 <div className="flex items-center gap-3 mb-4 pl-4">
                   <span className="text-lg">📋</span>
@@ -483,13 +483,16 @@ const TimelineCard = ({
         </div>
       </div>
 
-      {/* Delete Button */}
+      {/* Delete Button - Bottom Right, Always Visible */}
       <button
         onClick={(e) => {
           e.stopPropagation();
-          onDeleteStep(step.id);
+          if (window.confirm(`Delete "${step.title || 'this task'}"? This cannot be undone.`)) {
+            onDeleteStep(step.id);
+          }
         }}
-        className="absolute top-2 right-2 p-1.5 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all"
+        className="absolute bottom-3 right-3 p-1.5 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition-all"
+        title="Delete task"
       >
         <Trash2 size={14} />
       </button>
