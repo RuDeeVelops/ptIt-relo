@@ -29,6 +29,7 @@ const formatDateForInput = (date: any): string => {
 interface TimelineViewProps {
   steps: Step[];
   config: RelocationConfig;
+  teamMembers: string[];
   onUpdateStep: (id: string, field: keyof Step, value: any) => void;
   onDeleteStep: (id: string) => void;
   onToggleStatus: (id: string, status: Step['status']) => void;
@@ -83,6 +84,7 @@ const MonthMarker = ({ date, isRelocation, taskCount, onClick }: MonthMarkerProp
 export const TimelineView = ({
   steps,
   config,
+  teamMembers,
   onUpdateStep,
   onDeleteStep,
   onToggleStatus,
@@ -369,6 +371,7 @@ export const TimelineView = ({
                     <TimelineCard
                       key={step.id}
                       step={step}
+                      teamMembers={teamMembers}
                       onUpdateStep={onUpdateStep}
                       onDeleteStep={onDeleteStep}
                       onToggleStatus={onToggleStatus}
@@ -420,6 +423,7 @@ export const TimelineView = ({
                     <TimelineCard
                       key={step.id}
                       step={step}
+                      teamMembers={teamMembers}
                       onUpdateStep={onUpdateStep}
                       onDeleteStep={onDeleteStep}
                       onToggleStatus={onToggleStatus}
@@ -456,6 +460,7 @@ export const TimelineView = ({
                     <TimelineCard
                       key={step.id}
                       step={step}
+                      teamMembers={teamMembers}
                       onUpdateStep={onUpdateStep}
                       onDeleteStep={onDeleteStep}
                       onToggleStatus={onToggleStatus}
@@ -477,6 +482,7 @@ export const TimelineView = ({
                     <TimelineCard
                       key={step.id}
                       step={step}
+                      teamMembers={teamMembers}
                       onUpdateStep={onUpdateStep}
                       onDeleteStep={onDeleteStep}
                       onToggleStatus={onToggleStatus}
@@ -495,18 +501,21 @@ export const TimelineView = ({
 
 const TimelineCard = ({
   step,
+  teamMembers,
   onUpdateStep,
   onDeleteStep,
   onToggleStatus,
   relocationDate,
 }: {
   step: Step;
+  teamMembers: string[];
   onUpdateStep: (id: string, field: keyof Step, value: any) => void;
   onDeleteStep: (id: string) => void;
   onToggleStatus: (id: string, status: Step['status']) => void;
   relocationDate: Date | null;
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showAssigneeDropdown, setShowAssigneeDropdown] = useState(false);
   
   // Calculate days relative to relocation
   const getDaysToRelocation = () => {
@@ -576,6 +585,52 @@ const TimelineCard = ({
         
         {/* Card Content */}
         <div className="flex-1 p-4 min-w-0">
+        
+        {/* Assignee Tag */}
+        <div className="mb-2 relative">
+          <button
+            onClick={() => setShowAssigneeDropdown(!showAssigneeDropdown)}
+            className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full transition-all ${
+              step.assignee 
+                ? 'bg-purple-100 text-purple-700 hover:bg-purple-200' 
+                : 'bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-slate-600'
+            }`}
+          >
+            👤 {step.assignee || 'Unassigned'}
+          </button>
+          
+          {showAssigneeDropdown && (
+            <div className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-20 min-w-[120px]">
+              <button
+                onClick={() => {
+                  onUpdateStep(step.id, 'assignee', '');
+                  setShowAssigneeDropdown(false);
+                }}
+                className={`w-full text-left px-3 py-1.5 text-xs hover:bg-slate-50 ${!step.assignee ? 'text-purple-600 font-bold' : 'text-slate-500'}`}
+              >
+                Unassigned
+              </button>
+              {teamMembers.map((member) => (
+                <button
+                  key={member}
+                  onClick={() => {
+                    onUpdateStep(step.id, 'assignee', member);
+                    setShowAssigneeDropdown(false);
+                  }}
+                  className={`w-full text-left px-3 py-1.5 text-xs hover:bg-purple-50 ${step.assignee === member ? 'text-purple-600 font-bold bg-purple-50' : 'text-slate-700'}`}
+                >
+                  {member}
+                </button>
+              ))}
+              {teamMembers.length === 0 && (
+                <div className="px-3 py-1.5 text-xs text-slate-400 italic">
+                  Add team members in header
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Top Row: Title & Status */}
         <div className="flex items-start justify-between gap-3 mb-2">
           <div className="flex-1 min-w-0">

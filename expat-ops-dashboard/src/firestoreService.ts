@@ -23,6 +23,7 @@ export interface Step {
   budgetEstimated: number;
   budgetActual: number;
   budgetDeferred?: number;
+  assignee?: string;
   status: 'todo' | 'progress' | 'done';
   date?: Date | null;
   orderIndex?: number;
@@ -34,6 +35,7 @@ export interface UserSettings {
   relocationStartDate?: string | null;
   relocationDate?: string | null;
   relocationEndDate?: string | null;
+  teamMembers?: string[];
 }
 
 const STEPS_COLLECTION = 'steps';

@@ -3,7 +3,9 @@ import type { User } from 'firebase/auth';
 import { 
   Plus, 
   Plane,
-  LogOut
+  LogOut,
+  Users,
+  X
 } from 'lucide-react';
 import { signInWithGoogle, signOut, onAuthChange } from './authService';
 import { 
@@ -48,6 +50,7 @@ export default function ExpatDashboard() {
   const [steps, setSteps] = useState<Step[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
   const [unsubscribe, setUnsubscribe] = useState<(() => void) | null>(null);
+  const [teamMembers, setTeamMembers] = useState<string[]>([]);
   const [relocationConfig, setRelocationConfig] = useState<RelocationConfig>({
     startDate: null,
     relocationDate: null,
@@ -65,6 +68,7 @@ export default function ExpatDashboard() {
         relocationDate: settings.relocationDate ? new Date(settings.relocationDate) : null,
         endDate: settings.relocationEndDate ? new Date(settings.relocationEndDate) : null,
       });
+      setTeamMembers(settings.teamMembers || []);
     }
   }, []);
 
@@ -76,11 +80,21 @@ export default function ExpatDashboard() {
         relocationStartDate: config.startDate?.toISOString() ?? null,
         relocationDate: config.relocationDate?.toISOString() ?? null,
         relocationEndDate: config.endDate?.toISOString() ?? null,
+        teamMembers: teamMembers,
       };
       console.log('Saving settings:', settingsToSave);
       saveUserSettings(user.uid, settingsToSave)
         .then(() => console.log('Settings saved successfully'))
         .catch(err => console.error('Error saving settings:', err));
+    }
+  }, [user, teamMembers]);
+
+  // Save team members separately
+  const handleTeamMembersUpdate = useCallback((members: string[]) => {
+    setTeamMembers(members);
+    if (user) {
+      saveUserSettings(user.uid, { teamMembers: members })
+        .catch(err => console.error('Error saving team members:', err));
     }
   }, [user]);
 
@@ -240,6 +254,42 @@ export default function ExpatDashboard() {
             </div>
           </div>
 
+          {/* TEAM MEMBERS */}
+          <div className="flex items-center gap-2 bg-purple-50 px-3 py-1.5 rounded-lg border border-purple-200">
+            <Users size={14} className="text-purple-500" />
+            <div className="flex items-center gap-1 flex-wrap">
+              {teamMembers.map((member, i) => {
+                const taskCount = steps.filter(s => s.assignee === member).length;
+                return (
+                  <span 
+                    key={i} 
+                    className="inline-flex items-center gap-1 bg-purple-100 text-purple-700 text-[10px] font-bold px-2 py-0.5 rounded-full"
+                  >
+                    {member}
+                    <span className="bg-purple-500 text-white text-[8px] px-1 rounded-full">{taskCount}</span>
+                    <button
+                      onClick={() => handleTeamMembersUpdate(teamMembers.filter((_, idx) => idx !== i))}
+                      className="text-purple-400 hover:text-purple-700 ml-0.5"
+                    >
+                      <X size={10} />
+                    </button>
+                  </span>
+                );
+              })}
+              <button
+                onClick={() => {
+                  const name = prompt('Add team member name:');
+                  if (name && name.trim() && !teamMembers.includes(name.trim())) {
+                    handleTeamMembersUpdate([...teamMembers, name.trim()]);
+                  }
+                }}
+                className="text-purple-500 hover:text-purple-700 text-[10px] font-bold px-1.5 py-0.5 rounded hover:bg-purple-100 transition"
+              >
+                + Add
+              </button>
+            </div>
+          </div>
+
           <div className="flex gap-2 items-center">
             <div className="text-xs text-slate-500">{user?.email}</div>
             
@@ -262,6 +312,7 @@ export default function ExpatDashboard() {
         <TimelineView
           steps={steps}
           config={relocationConfig}
+          teamMembers={teamMembers}
           onUpdateStep={handleUpdateStep}
           onDeleteStep={handleDeleteStep}
           onToggleStatus={handleToggleStatus}
