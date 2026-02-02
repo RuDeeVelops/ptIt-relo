@@ -517,6 +517,18 @@ const TimelineCard = ({
   
   const daysToRelocation = getDaysToRelocation();
   
+  // Parse date for the tag
+  const stepDate = parseDate(step.date);
+  
+  // Determine tag color based on before/after relocation
+  const getTagColor = () => {
+    if (!stepDate) return 'bg-slate-100 text-slate-400';
+    if (!relocationDate) return 'bg-slate-200 text-slate-600';
+    if (stepDate < relocationDate) return 'bg-blue-500 text-white';
+    if (stepDate.getTime() === relocationDate.getTime()) return 'bg-red-500 text-white';
+    return 'bg-emerald-500 text-white';
+  };
+  
   const statusStyles = {
     todo: 'bg-amber-50 text-amber-600 border-amber-200 hover:bg-amber-100',
     progress: 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100',
@@ -535,10 +547,33 @@ const TimelineCard = ({
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
-      className="group relative bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-lg transition-all"
+      className="group relative bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-lg transition-all overflow-hidden"
     >
-      {/* Card Content */}
-      <div className="p-4">
+      <div className="flex">
+        {/* Date Tag - Left Side */}
+        <div className={`flex-shrink-0 w-[18%] min-w-[70px] max-w-[90px] flex flex-col items-center justify-center py-4 px-2 ${getTagColor()}`}>
+          {stepDate ? (
+            <>
+              <div className="text-2xl sm:text-3xl font-black leading-none">
+                {stepDate.getDate()}
+              </div>
+              <div className="text-[10px] sm:text-xs font-bold uppercase tracking-wide opacity-90">
+                {stepDate.toLocaleString('en-US', { month: 'short' })}
+              </div>
+              <div className="text-[9px] sm:text-[10px] font-medium opacity-75">
+                {stepDate.getFullYear()}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="text-lg font-bold opacity-60">—</div>
+              <div className="text-[9px] font-medium opacity-60 uppercase">No date</div>
+            </>
+          )}
+        </div>
+        
+        {/* Card Content */}
+        <div className="flex-1 p-4 min-w-0">
         {/* Top Row: Title & Status */}
         <div className="flex items-start justify-between gap-3 mb-2">
           <div className="flex-1 min-w-0">
@@ -721,6 +756,7 @@ const TimelineCard = ({
             <Trash2 size={14} />
           </button>
         </div>
+      </div>
       </div>
     </motion.div>
   );
