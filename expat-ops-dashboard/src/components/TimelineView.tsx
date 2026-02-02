@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trash2, ChevronDown } from 'lucide-react';
 import type { Step } from '../firestoreService';
@@ -146,6 +146,55 @@ export const TimelineView = ({
     }
   };
 
+  // Calculate dynamic month count between start and end dates
+  const timelineMonths = useMemo(() => {
+    const startDate = parseDate(config.startDate);
+    const endDate = parseDate(config.endDate);
+    const relocationDate = parseDate(config.relocationDate);
+    
+    if (!startDate || !endDate) return { months: [], relocationIndex: -1 };
+    
+    const months: Date[] = [];
+    const current = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+    const end = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
+    
+    while (current <= end) {
+      months.push(new Date(current));
+      current.setMonth(current.getMonth() + 1);
+    }
+    
+    // Find relocation month index for centering
+    let relocationIndex = -1;
+    if (relocationDate) {
+      relocationIndex = months.findIndex(m => 
+        m.getMonth() === relocationDate.getMonth() && 
+        m.getFullYear() === relocationDate.getFullYear()
+      );
+    }
+    
+    return { months, relocationIndex };
+  }, [config.startDate, config.endDate, config.relocationDate]);
+
+  // Auto-scroll to center on relocation month
+  const timelineRef = useRef<HTMLDivElement>(null);
+  
+  useEffect(() => {
+    if (timelineRef.current && timelineMonths.relocationIndex >= 0) {
+      const container = timelineRef.current;
+      const flexContainer = container.firstElementChild as HTMLElement;
+      if (flexContainer) {
+        const relocationElement = flexContainer.children[timelineMonths.relocationIndex] as HTMLElement;
+        if (relocationElement) {
+          const containerWidth = container.offsetWidth;
+          const elementLeft = relocationElement.offsetLeft;
+          const elementWidth = relocationElement.offsetWidth;
+          const scrollTo = elementLeft - (containerWidth / 2) + (elementWidth / 2);
+          container.scrollTo({ left: scrollTo, behavior: 'smooth' });
+        }
+      }
+    }
+  }, [timelineMonths]);
+
   return (
     <div className="space-y-8">
       {/* TIMELINE HEADER */}
@@ -156,22 +205,23 @@ export const TimelineView = ({
           </h2>
 
           {/* MONTHS DISPLAY */}
-          {config.startDate && config.endDate && (
+          {config.startDate && config.endDate && timelineMonths.months.length > 0 && (
             <div className="mb-8 pb-6 border-b border-slate-100">
-              <p className="text-[10px] text-slate-400 mb-3 text-center">Click a month to jump to its tasks</p>
-              <div className="overflow-x-auto pb-2 -mx-4 px-4">
-                <div className="flex gap-1 sm:gap-2 min-w-max sm:min-w-0 sm:grid sm:grid-cols-13" style={{ gridTemplateColumns: 'repeat(13, minmax(0, 1fr))' }}>
-                  {Array.from({ length: 13 }).map((_, i) => {
-                    const monthDate = new Date(config.startDate!);
-                    monthDate.setMonth(monthDate.getMonth() + i);
-                    const isRelocation =
-                      config.relocationDate &&
-                      monthDate.getMonth() === config.relocationDate.getMonth() &&
-                      monthDate.getFullYear() === config.relocationDate.getFullYear();
+              <p className="text-[10px] text-slate-400 mb-3 text-center">Click a month to jump to its tasks • Centered on relocation date</p>
+              <div 
+                ref={timelineRef}
+                className="overflow-x-auto pb-3 pt-1 -mx-4 px-4 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent"
+              >
+                <div className="flex gap-2 sm:gap-3 min-w-max justify-start sm:justify-center">
+                  {timelineMonths.months.map((monthDate, i) => {
+                    const relocationDate = parseDate(config.relocationDate);
+                    const isRelocation = relocationDate &&
+                      monthDate.getMonth() === relocationDate.getMonth() &&
+                      monthDate.getFullYear() === relocationDate.getFullYear();
                     const taskCount = getTaskCountForMonth(monthDate.getFullYear(), monthDate.getMonth());
 
                     return (
-                      <div key={i} className="flex-shrink-0 sm:flex-shrink text-center">
+                      <div key={i} className="flex-shrink-0 text-center">
                         <MonthMarker 
                           date={monthDate} 
                           isRelocation={!!isRelocation}
