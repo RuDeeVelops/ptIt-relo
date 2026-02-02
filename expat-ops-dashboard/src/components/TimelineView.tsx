@@ -1,6 +1,6 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { GripVertical, Trash2, ChevronDown } from 'lucide-react';
+import { Trash2, ChevronDown } from 'lucide-react';
 import type { Step } from '../firestoreService';
 import type { RelocationConfig } from './RelocationConfig';
 
@@ -32,7 +32,6 @@ interface TimelineViewProps {
   onUpdateStep: (id: string, field: keyof Step, value: any) => void;
   onDeleteStep: (id: string) => void;
   onToggleStatus: (id: string, status: Step['status']) => void;
-  onSort: (steps: Step[]) => void;
 }
 
 const MonthMarker = ({ date, isRelocation }: { date: Date; isRelocation: boolean }) => {
@@ -57,11 +56,7 @@ export const TimelineView = ({
   onUpdateStep,
   onDeleteStep,
   onToggleStatus,
-  onSort,
 }: TimelineViewProps) => {
-  const dragItem = useRef<number | null>(null);
-  const dragOverItem = useRef<number | null>(null);
-
   const sortedSteps = useMemo(() => {
     const withDates = steps.filter(s => s.date);
     const noDates = steps.filter(s => !s.date);
@@ -74,18 +69,6 @@ export const TimelineView = ({
     
     return [...withDates, ...noDates];
   }, [steps]);
-
-  const handleSort = () => {
-    if (dragItem.current === null || dragOverItem.current === null) return;
-    
-    const draggedItem = sortedSteps[dragItem.current];
-    const newSteps = sortedSteps.filter((_, i) => i !== dragItem.current);
-    newSteps.splice(dragOverItem.current, 0, draggedItem);
-    
-    dragItem.current = null;
-    dragOverItem.current = null;
-    onSort(newSteps);
-  };
 
   const isBeforeRelocation = (step: Step): boolean | null => {
     const relocationDate = parseDate(config.relocationDate);
@@ -155,14 +138,10 @@ export const TimelineView = ({
                   </div>
                 </div>
                 <div className="space-y-3 pl-4 pr-4 py-4 bg-blue-50/30 rounded-lg border border-blue-100/50">
-                  {beforeSteps.length > 0 ? beforeSteps.map((step, index) => (
+                  {beforeSteps.length > 0 ? beforeSteps.map((step) => (
                     <TimelineCard
                       key={step.id}
                       step={step}
-                      index={index}
-                      dragItem={dragItem}
-                      dragOverItem={dragOverItem}
-                      onDragEnd={handleSort}
                       onUpdateStep={onUpdateStep}
                       onDeleteStep={onDeleteStep}
                       onToggleStatus={onToggleStatus}
@@ -210,14 +189,10 @@ export const TimelineView = ({
                   </div>
                 </div>
                 <div className="space-y-3 pl-4 pr-4 py-4 bg-emerald-50/30 rounded-lg border border-emerald-100/50">
-                  {afterSteps.length > 0 ? afterSteps.map((step, index) => (
+                  {afterSteps.length > 0 ? afterSteps.map((step) => (
                     <TimelineCard
                       key={step.id}
                       step={step}
-                      index={index}
-                      dragItem={dragItem}
-                      dragOverItem={dragOverItem}
-                      onDragEnd={handleSort}
                       onUpdateStep={onUpdateStep}
                       onDeleteStep={onDeleteStep}
                       onToggleStatus={onToggleStatus}
@@ -250,14 +225,10 @@ export const TimelineView = ({
                   </div>
                 </div>
                 <div className="space-y-3 pl-4 pr-4 py-4 bg-slate-50/50 rounded-lg border border-slate-200/50 border-dashed">
-                  {undatedSteps.map((step, index) => (
+                  {undatedSteps.map((step) => (
                     <TimelineCard
                       key={step.id}
                       step={step}
-                      index={index}
-                      dragItem={dragItem}
-                      dragOverItem={dragOverItem}
-                      onDragEnd={handleSort}
                       onUpdateStep={onUpdateStep}
                       onDeleteStep={onDeleteStep}
                       onToggleStatus={onToggleStatus}
@@ -275,14 +246,10 @@ export const TimelineView = ({
                   <span className="text-amber-600 text-sm">⚠️ Set a <strong>Relocation Day</strong> above to organize tasks into before/after phases</span>
                 </div>
                 <div className="space-y-3 pl-4 pr-4 py-4 bg-slate-50 rounded-lg border border-slate-100">
-                  {sortedSteps.map((step, index) => (
+                  {sortedSteps.map((step) => (
                     <TimelineCard
                       key={step.id}
                       step={step}
-                      index={index}
-                      dragItem={dragItem}
-                      dragOverItem={dragOverItem}
-                      onDragEnd={handleSort}
                       onUpdateStep={onUpdateStep}
                       onDeleteStep={onDeleteStep}
                       onToggleStatus={onToggleStatus}
@@ -301,20 +268,12 @@ export const TimelineView = ({
 
 const TimelineCard = ({
   step,
-  index,
-  dragItem,
-  dragOverItem,
-  onDragEnd,
   onUpdateStep,
   onDeleteStep,
   onToggleStatus,
   relocationDate,
 }: {
   step: Step;
-  index: number;
-  dragItem: any;
-  dragOverItem: any;
-  onDragEnd: () => void;
   onUpdateStep: (id: string, field: keyof Step, value: any) => void;
   onDeleteStep: (id: string) => void;
   onToggleStatus: (id: string, status: Step['status']) => void;
@@ -350,31 +309,13 @@ const TimelineCard = ({
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
-      className="group relative bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-lg transition-all overflow-hidden"
+      className="group relative bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-lg transition-all"
     >
-      {/* Drag Handle - Only this area is draggable */}
-      <div
-        draggable
-        onDragStart={() => (dragItem.current = index)}
-        onDragEnter={() => (dragOverItem.current = index)}
-        onDragEnd={onDragEnd}
-        onDragOver={(e) => e.preventDefault()}
-        className="absolute left-0 top-0 bottom-0 w-8 bg-slate-50 border-r border-slate-100 flex items-center justify-center cursor-grab active:cursor-grabbing hover:bg-slate-100 transition-colors"
-      >
-        <GripVertical size={14} className="text-slate-400" />
-      </div>
-
       {/* Card Content */}
-      <div className="ml-8 p-4">
-        {/* Top Row: Phase, Title & Status */}
+      <div className="p-4">
+        {/* Top Row: Title & Status */}
         <div className="flex items-start justify-between gap-3 mb-2">
           <div className="flex-1 min-w-0">
-            <input
-              value={step.phase}
-              onChange={(e) => onUpdateStep(step.id, 'phase', e.target.value)}
-              placeholder="Phase..."
-              className="text-[10px] font-bold text-blue-600 uppercase tracking-widest bg-transparent hover:bg-blue-50 focus:bg-blue-50 rounded px-1.5 py-0.5 outline-none border border-transparent focus:border-blue-200 transition-all max-w-[120px] mb-1"
-            />
             <input
               value={step.title}
               onChange={(e) => onUpdateStep(step.id, 'title', e.target.value)}

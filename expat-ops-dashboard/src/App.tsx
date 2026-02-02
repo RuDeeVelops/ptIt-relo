@@ -305,7 +305,6 @@ export default function ExpatDashboard() {
             onUpdateStep={handleUpdateStep}
             onDeleteStep={handleDeleteStep}
             onToggleStatus={handleToggleStatus}
-            onSort={handleSort}
           />
         )}
       </main>

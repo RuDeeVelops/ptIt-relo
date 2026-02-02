@@ -319,19 +319,6 @@ const CarouselCard = ({
         )}
       </div>
 
-      {/* PHASE */}
-      {isFocused && onUpdateStep ? (
-        <input
-          value={step.phase}
-          onChange={(e) => onUpdateStep(step.id, 'phase', e.target.value)}
-          onClick={(e) => e.stopPropagation()}
-          className="text-xs font-bold uppercase tracking-wider text-white/70 bg-white/10 rounded px-2 py-1 mb-3 w-full focus:bg-white/20 outline-none border border-white/10"
-          placeholder="Phase..."
-        />
-      ) : (
-        <div className="text-xs font-bold uppercase tracking-wider text-white/70 mb-3">{step.phase}</div>
-      )}
-
       {/* TITLE */}
       {isFocused && onUpdateStep ? (
         <input
