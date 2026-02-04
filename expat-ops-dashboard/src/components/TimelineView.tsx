@@ -353,32 +353,55 @@ export const TimelineView = ({
     if (!taskZones) return;
 
     const handleScroll = () => {
-      // Find all month dividers and check which one is closest to the leading edge
-      const dividers = taskZones.querySelectorAll('[data-month-divider]');
+      const isDesktop = window.innerWidth >= 1024; // lg breakpoint
+      const containerRect = taskZones.getBoundingClientRect();
+      
       let closestYear = 0;
       let closestMonthNum = 0;
-      let closestDistance = Infinity;
       let found = false;
 
-      // Detect if we're in horizontal scroll mode (desktop) or vertical (mobile)
-      const isHorizontalScroll = window.innerWidth >= 1024; // lg breakpoint
-      const containerRect = taskZones.getBoundingClientRect();
+      if (isDesktop) {
+        // DESKTOP: Find month columns by data-month-divider attribute
+        const dividers = taskZones.querySelectorAll('[data-month-divider]');
+        let closestDistance = Infinity;
 
-      dividers.forEach((divider) => {
-        const rect = divider.getBoundingClientRect();
+        dividers.forEach((divider) => {
+          const rect = divider.getBoundingClientRect();
+          const distance = Math.abs(rect.left - containerRect.left - 50);
+          
+          if (distance < closestDistance) {
+            closestDistance = distance;
+            closestYear = parseInt(divider.getAttribute('data-year') || '0');
+            closestMonthNum = parseInt(divider.getAttribute('data-month') || '0');
+            found = true;
+          }
+        });
+      } else {
+        // MOBILE: Find visible task cards and detect their month
+        const taskCards = taskZones.querySelectorAll('[id^="task-"]');
+        let closestDistance = Infinity;
         
-        // Use horizontal distance for desktop, vertical for mobile
-        const distance = isHorizontalScroll
-          ? Math.abs(rect.left - containerRect.left - 50) // horizontal: left edge
-          : Math.abs(rect.top - containerRect.top - 50);  // vertical: top edge
-        
-        if (distance < closestDistance) {
-          closestDistance = distance;
-          closestYear = parseInt(divider.getAttribute('data-year') || '0');
-          closestMonthNum = parseInt(divider.getAttribute('data-month') || '0');
-          found = true;
-        }
-      });
+        taskCards.forEach((card) => {
+          const rect = card.getBoundingClientRect();
+          // Check if card is near the top of the visible area
+          const distance = Math.abs(rect.top - containerRect.top - 100);
+          
+          if (distance < closestDistance) {
+            closestDistance = distance;
+            // Extract task ID and find its date
+            const taskId = card.id.replace('task-', '');
+            const step = sortedSteps.find(s => s.id === taskId);
+            if (step) {
+              const stepDate = parseDate(step.date);
+              if (stepDate) {
+                closestYear = stepDate.getFullYear();
+                closestMonthNum = stepDate.getMonth();
+                found = true;
+              }
+            }
+          }
+        });
+      }
 
       if (found && showMonthsTimeline) {
         if (!currentVisibleMonth || 
@@ -394,7 +417,7 @@ export const TimelineView = ({
     // Initialize on mount
     setTimeout(handleScroll, 100);
     return () => taskZones.removeEventListener('scroll', handleScroll);
-  }, [showMonthsTimeline, currentVisibleMonth, scrollTimelineToMonth]);
+  }, [showMonthsTimeline, currentVisibleMonth, scrollTimelineToMonth, sortedSteps]);
 
   // Initialize timeline position when it opens
   useEffect(() => {
