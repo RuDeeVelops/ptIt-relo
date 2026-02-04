@@ -574,8 +574,8 @@ export const TimelineView = ({
       </div>
 
       {/* SCROLLABLE TASK ZONES */}
-      <div ref={taskZonesRef} className="flex-1 overflow-y-auto px-4 pb-8 pt-4">
-        <div className="max-w-6xl mx-auto">
+      <div ref={taskZonesRef} className="flex-1 overflow-y-auto lg:overflow-y-hidden px-4 pb-8 pt-4">
+        <div className="max-w-none mx-auto">
           <div className="space-y-6">
             {/* PRE-RELOCATION ZONE */}
             {config.relocationDate && (
@@ -594,26 +594,30 @@ export const TimelineView = ({
                     {beforeSteps.length} tasks
                   </div>
                 </div>
-                <div className="space-y-3 pl-4 pr-4 py-4 bg-blue-50/30 rounded-lg border border-blue-100/50">
+                <div className="py-4 bg-blue-50/30 rounded-lg border border-blue-100/50 overflow-x-auto lg:overflow-x-scroll" style={{ scrollbarWidth: 'thin' }}>
+                  <div className="flex flex-col lg:flex-row lg:gap-4 lg:px-4 lg:min-w-max space-y-3 lg:space-y-0 px-4">
                   {beforeSteps.length > 0 ? beforeStepsGrouped.map((group, groupIndex) => (
-                    <div key={group.key}>
+                    <div key={group.key} className="lg:flex lg:gap-4 lg:items-start">
                       {/* Month Divider */}
                       <div 
                         data-month-divider
                         data-year={group.year}
                         data-month={group.month}
-                        className={`flex items-center gap-2 ${groupIndex > 0 ? 'mt-4 pt-3 border-t border-blue-200/50' : ''}`}
+                        className={`flex lg:flex-col items-center gap-2 lg:gap-1 lg:min-w-[60px] lg:py-2 ${groupIndex > 0 ? 'mt-4 pt-3 border-t border-blue-200/50 lg:mt-0 lg:pt-0 lg:border-t-0 lg:border-l lg:pl-4' : ''}`}
                       >
-                        <div className="text-[10px] font-bold text-blue-500/70 uppercase tracking-wider">
-                          {new Date(group.year, group.month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                        <div className="text-[10px] font-bold text-blue-500/70 uppercase tracking-wider lg:text-center">
+                          {new Date(group.year, group.month).toLocaleDateString('en-US', { month: 'short' })}
                         </div>
-                        <div className="flex-1 h-px bg-blue-200/30"></div>
+                        <div className="hidden lg:block text-[9px] font-bold text-blue-400/60">
+                          {group.year}
+                        </div>
+                        <div className="flex-1 h-px bg-blue-200/30 lg:hidden"></div>
                       </div>
                       {/* Cards for this month */}
-                      <div className="space-y-3 mt-2">
+                      <div className="flex flex-col lg:flex-row gap-3 mt-2 lg:mt-0">
                         {group.steps.map((step) => (
+                          <div key={step.id} className="lg:w-[320px] lg:flex-shrink-0">
                           <TimelineCard
-                            key={step.id}
                             step={step}
                             teamMembers={teamMembers}
                             onUpdateStep={onUpdateStep}
@@ -621,6 +625,7 @@ export const TimelineView = ({
                             onToggleStatus={onToggleStatus}
                             relocationDate={parseDate(config.relocationDate)}
                           />
+                          </div>
                         ))}
                       </div>
                     </div>
@@ -629,6 +634,7 @@ export const TimelineView = ({
                       No tasks scheduled before relocation
                     </div>
                   )}
+                  </div>
                 </div>
               </div>
             )}
@@ -665,26 +671,30 @@ export const TimelineView = ({
                     {afterSteps.length} tasks
                   </div>
                 </div>
-                <div className="space-y-3 pl-4 pr-4 py-4 bg-emerald-50/30 rounded-lg border border-emerald-100/50">
+                <div className="py-4 bg-emerald-50/30 rounded-lg border border-emerald-100/50 overflow-x-auto lg:overflow-x-scroll" style={{ scrollbarWidth: 'thin' }}>
+                  <div className="flex flex-col lg:flex-row lg:gap-4 lg:px-4 lg:min-w-max space-y-3 lg:space-y-0 px-4">
                   {afterSteps.length > 0 ? afterStepsGrouped.map((group, groupIndex) => (
-                    <div key={group.key}>
+                    <div key={group.key} className="lg:flex lg:gap-4 lg:items-start">
                       {/* Month Divider */}
                       <div 
                         data-month-divider
                         data-year={group.year}
                         data-month={group.month}
-                        className={`flex items-center gap-2 ${groupIndex > 0 ? 'mt-4 pt-3 border-t border-emerald-200/50' : ''}`}
+                        className={`flex lg:flex-col items-center gap-2 lg:gap-1 lg:min-w-[60px] lg:py-2 ${groupIndex > 0 ? 'mt-4 pt-3 border-t border-emerald-200/50 lg:mt-0 lg:pt-0 lg:border-t-0 lg:border-l lg:pl-4' : ''}`}
                       >
-                        <div className="text-[10px] font-bold text-emerald-500/70 uppercase tracking-wider">
-                          {new Date(group.year, group.month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                        <div className="text-[10px] font-bold text-emerald-500/70 uppercase tracking-wider lg:text-center">
+                          {new Date(group.year, group.month).toLocaleDateString('en-US', { month: 'short' })}
                         </div>
-                        <div className="flex-1 h-px bg-emerald-200/30"></div>
+                        <div className="hidden lg:block text-[9px] font-bold text-emerald-400/60">
+                          {group.year}
+                        </div>
+                        <div className="flex-1 h-px bg-emerald-200/30 lg:hidden"></div>
                       </div>
                       {/* Cards for this month */}
-                      <div className="space-y-3 mt-2">
+                      <div className="flex flex-col lg:flex-row gap-3 mt-2 lg:mt-0">
                         {group.steps.map((step) => (
+                          <div key={step.id} className="lg:w-[320px] lg:flex-shrink-0">
                           <TimelineCard
-                            key={step.id}
                             step={step}
                             teamMembers={teamMembers}
                             onUpdateStep={onUpdateStep}
@@ -692,6 +702,7 @@ export const TimelineView = ({
                             onToggleStatus={onToggleStatus}
                             relocationDate={parseDate(config.relocationDate)}
                           />
+                          </div>
                         ))}
                       </div>
                     </div>
@@ -700,6 +711,7 @@ export const TimelineView = ({
                       No tasks scheduled after relocation
                     </div>
                   )}
+                  </div>
                 </div>
               </div>
             )}
@@ -721,10 +733,11 @@ export const TimelineView = ({
                     {undatedSteps.length} tasks
                   </div>
                 </div>
-                <div className="space-y-3 pl-4 pr-4 py-4 bg-slate-50/50 rounded-lg border border-slate-200/50 border-dashed">
+                <div className="py-4 bg-slate-50/50 rounded-lg border border-slate-200/50 border-dashed overflow-x-auto lg:overflow-x-scroll" style={{ scrollbarWidth: 'thin' }}>
+                  <div className="flex flex-col lg:flex-row lg:gap-4 lg:px-4 lg:min-w-max space-y-3 lg:space-y-0 px-4">
                   {undatedSteps.map((step) => (
+                    <div key={step.id} className="lg:w-[320px] lg:flex-shrink-0">
                     <TimelineCard
-                      key={step.id}
                       step={step}
                       teamMembers={teamMembers}
                       onUpdateStep={onUpdateStep}
@@ -732,7 +745,9 @@ export const TimelineView = ({
                       onToggleStatus={onToggleStatus}
                       relocationDate={parseDate(config.relocationDate)}
                     />
+                    </div>
                   ))}
+                  </div>
                 </div>
               </div>
             )}
@@ -743,10 +758,11 @@ export const TimelineView = ({
                 <div className="text-center mb-4 py-4 px-6 bg-amber-50 rounded-lg border border-amber-200">
                   <span className="text-amber-600 text-sm">⚠️ Set a <strong>Relocation Day</strong> above to organize tasks into before/after phases</span>
                 </div>
-                <div className="space-y-3 pl-4 pr-4 py-4 bg-slate-50 rounded-lg border border-slate-100">
+                <div className="py-4 bg-slate-50 rounded-lg border border-slate-100 overflow-x-auto lg:overflow-x-scroll" style={{ scrollbarWidth: 'thin' }}>
+                  <div className="flex flex-col lg:flex-row lg:gap-4 lg:px-4 lg:min-w-max space-y-3 lg:space-y-0 px-4">
                   {sortedSteps.map((step) => (
+                    <div key={step.id} className="lg:w-[320px] lg:flex-shrink-0">
                     <TimelineCard
-                      key={step.id}
                       step={step}
                       teamMembers={teamMembers}
                       onUpdateStep={onUpdateStep}
@@ -754,7 +770,9 @@ export const TimelineView = ({
                       onToggleStatus={onToggleStatus}
                       relocationDate={null}
                     />
+                    </div>
                   ))}
+                  </div>
                 </div>
               </div>
             )}
