@@ -204,7 +204,12 @@ export const TimelineView = ({
       if (firstTask) {
         const element = document.getElementById(`task-${firstTask.id}`);
         if (element) {
-          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // Manually calculate scroll position relative to taskZones container
+          const containerRect = taskZones.getBoundingClientRect();
+          const elementRect = element.getBoundingClientRect();
+          const scrollTop = taskZones.scrollTop + (elementRect.top - containerRect.top) - 100; // 100px offset from top
+          taskZones.scrollTo({ top: scrollTop, behavior: 'smooth' });
+          
           // Flash highlight
           element.classList.add('ring-2', 'ring-blue-400', 'ring-offset-2');
           setTimeout(() => {
