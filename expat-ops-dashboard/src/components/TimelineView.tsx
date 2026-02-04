@@ -633,14 +633,13 @@ export const TimelineView = ({
                     <div className="flex-1 min-h-0 flex gap-4 p-4 overflow-x-visible">
                       {group.steps.map((step) => (
                         <div key={step.id} className="w-[280px] flex-shrink-0 h-full">
-                          <TimelineCard
+                          <TimelineCardDesktop
                             step={step}
                             teamMembers={teamMembers}
                             onUpdateStep={onUpdateStep}
                             onDeleteStep={onDeleteStep}
                             onToggleStatus={onToggleStatus}
                             relocationDate={parseDate(config.relocationDate)}
-                            isDesktop={true}
                           />
                         </div>
                       ))}
@@ -665,14 +664,13 @@ export const TimelineView = ({
                   <div className="flex-1 min-h-0 flex gap-4 p-4">
                     {undatedSteps.map((step) => (
                       <div key={step.id} className="w-[280px] flex-shrink-0 h-full">
-                        <TimelineCard
+                        <TimelineCardDesktop
                           step={step}
                           teamMembers={teamMembers}
                           onUpdateStep={onUpdateStep}
                           onDeleteStep={onDeleteStep}
                           onToggleStatus={onToggleStatus}
                           relocationDate={parseDate(config.relocationDate)}
-                          isDesktop={true}
                         />
                       </div>
                     ))}
@@ -688,14 +686,13 @@ export const TimelineView = ({
               <div className="flex-1 min-h-0 flex gap-4 p-4 bg-slate-50 rounded-b-xl">
                 {sortedSteps.map((step) => (
                   <div key={step.id} className="w-[280px] flex-shrink-0 h-full">
-                    <TimelineCard
+                    <TimelineCardDesktop
                       step={step}
                       teamMembers={teamMembers}
                       onUpdateStep={onUpdateStep}
                       onDeleteStep={onDeleteStep}
                       onToggleStatus={onToggleStatus}
                       relocationDate={null}
-                      isDesktop={true}
                     />
                   </div>
                 ))}
@@ -726,7 +723,7 @@ export const TimelineView = ({
                   </div>
                   <div className="space-y-3">
                     {beforeSteps.map((step) => (
-                      <TimelineCard
+                      <TimelineCardMobile
                         key={step.id}
                         step={step}
                         teamMembers={teamMembers}
@@ -760,7 +757,7 @@ export const TimelineView = ({
                   </div>
                   <div className="space-y-3">
                     {afterSteps.map((step) => (
-                      <TimelineCard
+                      <TimelineCardMobile
                         key={step.id}
                         step={step}
                         teamMembers={teamMembers}
@@ -784,7 +781,7 @@ export const TimelineView = ({
                   </div>
                   <div className="space-y-3">
                     {undatedSteps.map((step) => (
-                      <TimelineCard
+                      <TimelineCardMobile
                         key={step.id}
                         step={step}
                         teamMembers={teamMembers}
@@ -808,7 +805,7 @@ export const TimelineView = ({
               </div>
               <div className="space-y-3">
                 {sortedSteps.map((step) => (
-                  <TimelineCard
+                  <TimelineCardMobile
                     key={step.id}
                     step={step}
                     teamMembers={teamMembers}
@@ -827,14 +824,16 @@ export const TimelineView = ({
   );
 };
 
-const TimelineCard = ({
+// ============================================
+// MOBILE CARD - Original vertical layout design
+// ============================================
+const TimelineCardMobile = ({
   step,
   teamMembers,
   onUpdateStep,
   onDeleteStep,
   onToggleStatus,
   relocationDate,
-  isDesktop = false,
 }: {
   step: Step;
   teamMembers: string[];
@@ -842,7 +841,374 @@ const TimelineCard = ({
   onDeleteStep: (id: string) => void;
   onToggleStatus: (id: string, status: Step['status']) => void;
   relocationDate: Date | null;
-  isDesktop?: boolean;
+}) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [showAssigneeDropdown, setShowAssigneeDropdown] = useState(false);
+  
+  // Local state to prevent cursor jumping and premature dispatch
+  const [localNotes, setLocalNotes] = useState(step.notes);
+  const [localDate, setLocalDate] = useState(formatDateForInput(step.date));
+  
+  // Sync local state when step prop changes (from external updates)
+  useEffect(() => {
+    setLocalNotes(step.notes);
+  }, [step.notes]);
+  
+  useEffect(() => {
+    setLocalDate(formatDateForInput(step.date));
+  }, [step.date]);
+  
+  // Calculate days relative to relocation
+  const getDaysToRelocation = () => {
+    const stepDate = parseDate(step.date);
+    if (!stepDate || !relocationDate) return null;
+    const diffTime = stepDate.getTime() - relocationDate.getTime();
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+  
+  const daysToRelocation = getDaysToRelocation();
+  
+  // Parse date for the tag
+  const stepDate = parseDate(step.date);
+  
+  // Determine tag color based on before/after relocation
+  const getTagColor = () => {
+    if (!stepDate) return 'bg-slate-100 text-slate-400';
+    if (!relocationDate) return 'bg-slate-200 text-slate-600';
+    if (stepDate < relocationDate) return 'bg-blue-500 text-white';
+    if (stepDate.getTime() === relocationDate.getTime()) return 'bg-red-500 text-white';
+    return 'bg-emerald-500 text-white';
+  };
+  
+  const statusStyles = {
+    todo: 'bg-amber-50 text-amber-600 border-amber-200 hover:bg-amber-100',
+    progress: 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100',
+    done: 'bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100',
+  };
+
+  const getStatusLabel = (status: Step['status']) => {
+    const labels = { todo: '📋 Todo', progress: '🔄 In Progress', done: '✅ Done' };
+    return labels[status];
+  };
+
+  return (
+    <motion.div
+      id={`task-${step.id}`}
+      layout
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      className="group relative bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-lg transition-all overflow-hidden"
+    >
+      <div className="flex">
+        {/* Date Tag - Left Side */}
+        <div className={`flex-shrink-0 w-[18%] min-w-[70px] max-w-[90px] flex flex-col items-center justify-center py-4 px-2 ${getTagColor()}`}>
+          {stepDate ? (
+            <>
+              <div className="text-2xl sm:text-3xl font-black leading-none">
+                {stepDate.getDate()}
+              </div>
+              <div className="text-[10px] sm:text-xs font-bold uppercase tracking-wide opacity-90">
+                {stepDate.toLocaleString('en-US', { month: 'short' })}
+              </div>
+              <div className="text-[10px] sm:text-xs font-bold opacity-80">
+                {stepDate.getFullYear()}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="text-lg font-bold opacity-60">—</div>
+              <div className="text-[9px] font-medium opacity-60 uppercase">No date</div>
+            </>
+          )}
+        </div>
+        
+        {/* Card Content */}
+        <div className="flex-1 p-4 min-w-0">
+        
+        {/* Assignee Tag */}
+        <div className="mb-2 relative">
+          <button
+            onClick={() => setShowAssigneeDropdown(!showAssigneeDropdown)}
+            className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full transition-all ${
+              step.assignee 
+                ? 'bg-purple-100 text-purple-700 hover:bg-purple-200' 
+                : 'bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-slate-600'
+            }`}
+          >
+            👤 {step.assignee || 'Unassigned'}
+          </button>
+          
+          {showAssigneeDropdown && (
+            <div className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-20 min-w-[120px]">
+              <button
+                onClick={() => {
+                  onUpdateStep(step.id, 'assignee', '');
+                  setShowAssigneeDropdown(false);
+                }}
+                className={`w-full text-left px-3 py-1.5 text-xs hover:bg-slate-50 ${!step.assignee ? 'text-purple-600 font-bold' : 'text-slate-500'}`}
+              >
+                Unassigned
+              </button>
+              {teamMembers.map((member) => (
+                <button
+                  key={member}
+                  onClick={() => {
+                    onUpdateStep(step.id, 'assignee', member);
+                    setShowAssigneeDropdown(false);
+                  }}
+                  className={`w-full text-left px-3 py-1.5 text-xs hover:bg-purple-50 ${step.assignee === member ? 'text-purple-600 font-bold bg-purple-50' : 'text-slate-700'}`}
+                >
+                  {member}
+                </button>
+              ))}
+              {teamMembers.length === 0 && (
+                <div className="px-3 py-1.5 text-xs text-slate-400 italic">
+                  Add team members in header
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Top Row: Title & Status */}
+        <div className="flex items-start justify-between gap-3 mb-2">
+          <div className="flex-1 min-w-0">
+            <input
+              value={step.title}
+              onChange={(e) => onUpdateStep(step.id, 'title', e.target.value)}
+              placeholder="Task title..."
+              className="w-full text-base font-bold text-slate-900 bg-transparent hover:bg-slate-50 focus:bg-slate-50 rounded px-2 py-1 outline-none border border-transparent focus:border-slate-200 transition-all"
+            />
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleStatus(step.id, step.status);
+              }}
+              className={`text-[10px] font-bold px-2.5 py-1 rounded-full border transition-all ${statusStyles[step.status]}`}
+            >
+              {getStatusLabel(step.status)}
+            </button>
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all"
+            >
+              <motion.div animate={{ rotate: isExpanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
+                <ChevronDown size={16} />
+              </motion.div>
+            </button>
+          </div>
+        </div>
+
+        {/* Preview Notes (collapsed) */}
+        {!isExpanded && step.notes && (
+          <p 
+            className="text-xs text-slate-500 truncate px-2 mb-2 cursor-pointer hover:text-slate-700"
+            onClick={() => setIsExpanded(true)}
+          >
+            {step.notes}
+          </p>
+        )}
+
+        {/* Expanded Content */}
+        <AnimatePresence>
+          {isExpanded && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              {/* Notes */}
+              <textarea
+                value={localNotes}
+                onChange={(e) => setLocalNotes(e.target.value)}
+                onBlur={() => {
+                  if (localNotes !== step.notes) {
+                    onUpdateStep(step.id, 'notes', localNotes);
+                  }
+                }}
+                placeholder="Add notes, details, links..."
+                rows={4}
+                className="w-full text-sm text-slate-700 bg-slate-50 hover:bg-slate-100 focus:bg-white rounded-lg px-3 py-2 outline-none border border-slate-200 focus:border-blue-300 transition-all resize-none mb-3"
+              />
+
+              {/* Budget Row */}
+              <div className="flex flex-wrap items-center gap-4 mb-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">Est. Budget</span>
+                  <div className="flex items-center bg-white rounded-lg px-2 py-1 border border-slate-200">
+                    <span className="text-xs text-slate-400 mr-1">€</span>
+                    <input
+                      type="number"
+                      value={step.budgetEstimated}
+                      onChange={(e) => onUpdateStep(step.id, 'budgetEstimated', parseFloat(e.target.value) || 0)}
+                      className="w-16 bg-transparent text-sm font-bold text-slate-700 outline-none text-right"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">Actual</span>
+                  <div className={`flex items-center rounded-lg px-2 py-1 border ${
+                    step.budgetActual > step.budgetEstimated 
+                      ? 'bg-red-50 border-red-200' 
+                      : 'bg-emerald-50 border-emerald-200'
+                  }`}>
+                    <span className="text-xs text-slate-400 mr-1">€</span>
+                    <input
+                      type="number"
+                      value={step.budgetActual}
+                      onChange={(e) => onUpdateStep(step.id, 'budgetActual', parseFloat(e.target.value) || 0)}
+                      className={`w-16 bg-transparent text-sm font-bold outline-none text-right ${
+                        step.budgetActual > step.budgetEstimated ? 'text-red-600' : 'text-emerald-600'
+                      }`}
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-amber-500 uppercase">Optional</span>
+                  <div className="flex items-center bg-amber-50 rounded-lg px-2 py-1 border border-amber-200">
+                    <span className="text-xs text-amber-400 mr-1">€</span>
+                    <input
+                      type="number"
+                      value={step.budgetDeferred || 0}
+                      onChange={(e) => onUpdateStep(step.id, 'budgetDeferred', parseFloat(e.target.value) || 0)}
+                      className="w-16 bg-transparent text-sm font-bold text-amber-600 outline-none text-right"
+                    />
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Bottom Row: Date & Quick Budget Preview */}
+        <div className="flex items-center justify-between gap-4 pt-3 border-t border-slate-100">
+          {/* Date Picker */}
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold text-slate-400 uppercase">📅</span>
+            <input
+              type="date"
+              value={localDate}
+              onChange={(e) => setLocalDate(e.target.value)}
+              onBlur={() => {
+                if (localDate !== formatDateForInput(step.date)) {
+                  const date = localDate ? new Date(localDate + 'T00:00:00Z') : null;
+                  onUpdateStep(step.id, 'date', date);
+                }
+              }}
+              className="text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
+            />
+            {/* Days to/from relocation indicator */}
+            {daysToRelocation !== null && (
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                daysToRelocation < 0 
+                  ? 'bg-blue-100 text-blue-600' 
+                  : daysToRelocation === 0 
+                    ? 'bg-red-100 text-red-600'
+                    : 'bg-emerald-100 text-emerald-600'
+              }`}>
+                {daysToRelocation === 0 
+                  ? '🚀 Move day!' 
+                  : daysToRelocation < 0 
+                    ? `${Math.abs(daysToRelocation)}d before` 
+                    : `${daysToRelocation}d after`}
+              </span>
+            )}
+            {step.date && daysToRelocation === null && relocationDate === null && (
+              <span className="text-[10px] text-amber-500 font-medium">
+                ⚠️ Set relocation date
+              </span>
+            )}
+          </div>
+
+          {/* Budget */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] font-bold text-slate-400">Est:</span>
+              <div className="flex items-center bg-slate-50 rounded px-1.5 py-0.5 border border-slate-200">
+                <span className="text-[10px] text-slate-400">€</span>
+                <input
+                  type="number"
+                  value={step.budgetEstimated}
+                  onChange={(e) => onUpdateStep(step.id, 'budgetEstimated', parseFloat(e.target.value) || 0)}
+                  className="w-14 bg-transparent text-xs font-bold text-slate-700 outline-none text-right"
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] font-bold text-slate-400">Real:</span>
+              <div className={`flex items-center rounded px-1.5 py-0.5 border ${
+                step.budgetActual > step.budgetEstimated 
+                  ? 'bg-red-50 border-red-200' 
+                  : 'bg-emerald-50 border-emerald-200'
+              }`}>
+                <span className="text-[10px] text-slate-400">€</span>
+                <input
+                  type="number"
+                  value={step.budgetActual}
+                  onChange={(e) => onUpdateStep(step.id, 'budgetActual', parseFloat(e.target.value) || 0)}
+                  className={`w-14 bg-transparent text-xs font-bold outline-none text-right ${
+                    step.budgetActual > step.budgetEstimated ? 'text-red-600' : 'text-emerald-600'
+                  }`}
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] font-bold text-amber-500">Opt:</span>
+              <div className="flex items-center bg-amber-50 rounded px-1.5 py-0.5 border border-amber-200">
+                <span className="text-[10px] text-amber-400">€</span>
+                <input
+                  type="number"
+                  value={step.budgetDeferred || 0}
+                  onChange={(e) => onUpdateStep(step.id, 'budgetDeferred', parseFloat(e.target.value) || 0)}
+                  className="w-14 bg-transparent text-xs font-bold text-amber-600 outline-none text-right"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Delete Button */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (window.confirm(`Delete "${step.title || 'this task'}"? This cannot be undone.`)) {
+                onDeleteStep(step.id);
+              }
+            }}
+            className="p-1.5 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition-all flex-shrink-0"
+            title="Delete task"
+          >
+            <Trash2 size={14} />
+          </button>
+        </div>
+      </div>
+      </div>
+    </motion.div>
+  );
+};
+
+// ============================================
+// DESKTOP CARD - New horizontal layout design
+// ============================================
+const TimelineCardDesktop = ({
+  step,
+  teamMembers,
+  onUpdateStep,
+  onDeleteStep,
+  onToggleStatus,
+  relocationDate,
+}: {
+  step: Step;
+  teamMembers: string[];
+  onUpdateStep: (id: string, field: keyof Step, value: any) => void;
+  onDeleteStep: (id: string) => void;
+  onToggleStatus: (id: string, status: Step['status']) => void;
+  relocationDate: Date | null;
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showAssigneeDropdown, setShowAssigneeDropdown] = useState(false);
@@ -894,8 +1260,6 @@ const TimelineCard = ({
     return labels[status];
   };
 
-  // Desktop: Full height card with flex column layout
-  // Mobile: Auto height with expand/collapse
   return (
     <motion.div
       id={`task-${step.id}`}
@@ -903,9 +1267,7 @@ const TimelineCard = ({
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
-      className={`group relative bg-white rounded-2xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all ${
-        isDesktop ? 'h-full flex flex-col' : ''
-      }`}
+      className="group relative bg-white rounded-2xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all h-full flex flex-col"
       style={{ 
         boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05)',
       }}
@@ -1008,8 +1370,8 @@ const TimelineCard = ({
         </div>
       </div>
 
-      {/* Content Area - Grows to fill available space on desktop */}
-      <div className={`flex-1 flex flex-col p-4 pt-2 min-h-0 ${isDesktop ? 'overflow-y-auto' : ''}`} style={{ scrollbarWidth: 'thin' }}>
+      {/* Content Area - Grows to fill available space */}
+      <div className="flex-1 flex flex-col p-4 pt-2 min-h-0 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
         {/* Status Button Row */}
         <div className="flex items-center justify-between gap-2 mb-3">
           <button
@@ -1062,7 +1424,7 @@ const TimelineCard = ({
                   }
                 }}
                 placeholder="Add notes, details, links..."
-                rows={isDesktop ? 5 : 3}
+                rows={5}
                 className="w-full text-sm text-slate-700 bg-slate-50 hover:bg-slate-100 focus:bg-white rounded-xl px-3 py-2.5 outline-none border border-slate-200 focus:border-blue-300 focus:ring-2 focus:ring-blue-100 transition-all resize-none"
               />
 
