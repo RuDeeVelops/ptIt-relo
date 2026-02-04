@@ -213,10 +213,17 @@ export default function ExpatDashboard() {
   const [showExportMenu, setShowExportMenu] = useState(false);
 
   // Export functions
-  const parseDate = (date: Date | string | null | undefined | undefined): Date | null => {
+  const parseDate = (date: any): Date | null => {
     if (!date) return null;
     if (date instanceof Date) return date;
-    return new Date(date);
+    // Handle Firestore Timestamp
+    if (date && typeof date.toDate === 'function') return date.toDate();
+    // Handle ISO string or other string formats
+    if (typeof date === 'string') {
+      const parsed = new Date(date);
+      return isNaN(parsed.getTime()) ? null : parsed;
+    }
+    return null;
   };
 
   const exportAsJSON = () => {
