@@ -169,24 +169,53 @@ export const TimelineView = ({
     }).length;
   };
 
-  // Scroll to first task of a given month
+  // Scroll to a given month in the task area
   const scrollToMonth = (year: number, month: number) => {
-    const firstTask = sortedSteps.find(s => {
-      const stepDate = parseDate(s.date);
-      if (!stepDate) return false;
-      return stepDate.getFullYear() === year && stepDate.getMonth() === month;
-    });
-    if (firstTask) {
-      const element = document.getElementById(`task-${firstTask.id}`);
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        // Flash highlight
-        element.classList.add('ring-2', 'ring-blue-400', 'ring-offset-2');
-        setTimeout(() => {
-          element.classList.remove('ring-2', 'ring-blue-400', 'ring-offset-2');
-        }, 2000);
+    const taskZones = taskZonesRef.current;
+    if (!taskZones) return;
+
+    const isDesktop = window.innerWidth >= 1024;
+
+    if (isDesktop) {
+      // On desktop, scroll to the month column directly
+      const monthColumn = taskZones.querySelector(`[data-month-divider][data-year="${year}"][data-month="${month}"]`);
+      if (monthColumn) {
+        const containerRect = taskZones.getBoundingClientRect();
+        const columnRect = monthColumn.getBoundingClientRect();
+        const scrollLeft = taskZones.scrollLeft + (columnRect.left - containerRect.left) - 20;
+        taskZones.scrollTo({ left: scrollLeft, behavior: 'smooth' });
+        
+        // Flash highlight the column header
+        const header = monthColumn.querySelector('div:first-child');
+        if (header) {
+          header.classList.add('ring-2', 'ring-blue-400', 'ring-inset');
+          setTimeout(() => {
+            header.classList.remove('ring-2', 'ring-blue-400', 'ring-inset');
+          }, 2000);
+        }
+      }
+    } else {
+      // On mobile, scroll to the first task of that month
+      const firstTask = sortedSteps.find(s => {
+        const stepDate = parseDate(s.date);
+        if (!stepDate) return false;
+        return stepDate.getFullYear() === year && stepDate.getMonth() === month;
+      });
+      if (firstTask) {
+        const element = document.getElementById(`task-${firstTask.id}`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // Flash highlight
+          element.classList.add('ring-2', 'ring-blue-400', 'ring-offset-2');
+          setTimeout(() => {
+            element.classList.remove('ring-2', 'ring-blue-400', 'ring-offset-2');
+          }, 2000);
+        }
       }
     }
+    
+    // Update current visible month
+    setCurrentVisibleMonth({ year, month });
   };
 
   // Calculate dynamic month count between start and end dates
@@ -324,17 +353,24 @@ export const TimelineView = ({
     if (!taskZones) return;
 
     const handleScroll = () => {
-      // Find all month dividers and check which one is closest to top
+      // Find all month dividers and check which one is closest to the leading edge
       const dividers = taskZones.querySelectorAll('[data-month-divider]');
       let closestYear = 0;
       let closestMonthNum = 0;
       let closestDistance = Infinity;
       let found = false;
 
+      // Detect if we're in horizontal scroll mode (desktop) or vertical (mobile)
+      const isHorizontalScroll = window.innerWidth >= 1024; // lg breakpoint
+      const containerRect = taskZones.getBoundingClientRect();
+
       dividers.forEach((divider) => {
         const rect = divider.getBoundingClientRect();
-        const containerRect = taskZones.getBoundingClientRect();
-        const distance = Math.abs(rect.top - containerRect.top - 50);
+        
+        // Use horizontal distance for desktop, vertical for mobile
+        const distance = isHorizontalScroll
+          ? Math.abs(rect.left - containerRect.left - 50) // horizontal: left edge
+          : Math.abs(rect.top - containerRect.top - 50);  // vertical: top edge
         
         if (distance < closestDistance) {
           closestDistance = distance;
